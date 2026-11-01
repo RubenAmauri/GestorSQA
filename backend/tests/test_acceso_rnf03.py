@@ -21,6 +21,7 @@ RUTAS_DE_PROYECTO = [
     ("post", "/api/projects/{id}/metrics/"),
     ("get", "/api/projects/{id}/activities/"),
     ("post", "/api/projects/{id}/activities/"),
+    ("get", "/api/projects/{id}/report/"),
 ]
 
 RUTAS_CON_SESION = [
