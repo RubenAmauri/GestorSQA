@@ -22,7 +22,8 @@ jobs:
       db:
         image: mariadb:11.4
         env:
-          MARIADB_ROOT_PASSWORD: ci-root
+          # Contraseña generada en cada ejecución; no queda escrita en el repositorio (SQAP 7.1.2).
+          MARIADB_ROOT_PASSWORD: ${{ github.run_id }}-${{ github.run_attempt }}
           MARIADB_DATABASE: gestorsqa
         ports: ["3306:3306"]
         options: >-
@@ -33,7 +34,7 @@ jobs:
       DB_ENGINE: mysql
       DB_NAME: gestorsqa
       DB_USER: root
-      DB_PASSWORD: ci-root
+      DB_PASSWORD: ${{ github.run_id }}-${{ github.run_attempt }}
       DB_HOST: 127.0.0.1
       DB_PORT: "3306"
     defaults:

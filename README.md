@@ -19,6 +19,7 @@ Proyecto de la materia Calidad del Software. La construcción sigue el Plan de A
 Requisito: Docker con Docker Compose.
 
 ```bash
+cp .env.example .env    # la primera vez; cambia las contraseñas
 docker compose -f compose.dev.yml up --build
 ```
 
