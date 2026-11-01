@@ -11,5 +11,6 @@ from apps.core.views import spa_index
 urlpatterns = [
     path("api/", include("apps.core.urls")),
     path("api/", include("apps.accounts.urls")),
+    path("api/", include("apps.projects.urls")),
     re_path(r"^(?!api/|static/).*$", spa_index, name="spa"),
 ]

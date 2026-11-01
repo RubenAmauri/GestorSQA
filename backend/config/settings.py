@@ -135,6 +135,7 @@ REST_FRAMEWORK = {
     # Límites de intentos (RNF-05). Cada vista elige su clase de límite en apps/core.
     "DEFAULT_THROTTLE_RATES": {
         "inicio_sesion": "5/min",
+        "union_codigo": "10/hour",
     },
     # Caddy es el único proxy delante de la app: la IP real es la última de X-Forwarded-For.
     "NUM_PROXIES": 1,

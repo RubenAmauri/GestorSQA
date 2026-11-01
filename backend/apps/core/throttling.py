@@ -16,3 +16,16 @@ class InicioSesionThrottle(SimpleRateThrottle):
 
     def get_cache_key(self, request, view) -> str:
         return self.cache_format % {"scope": self.scope, "ident": self.get_ident(request)}
+
+
+class UnionCodigoThrottle(SimpleRateThrottle):
+    """Unión por código: 10 intentos por hora por usuario, contra la adivinación de códigos.
+
+    La tasa vive en ``REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"]["union_codigo"]``. La vista
+    exige sesión, así que siempre hay un usuario autenticado.
+    """
+
+    scope = "union_codigo"
+
+    def get_cache_key(self, request, view) -> str:
+        return self.cache_format % {"scope": self.scope, "ident": request.user.pk}
