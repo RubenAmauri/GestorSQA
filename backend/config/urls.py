@@ -12,5 +12,6 @@ urlpatterns = [
     path("api/", include("apps.core.urls")),
     path("api/", include("apps.accounts.urls")),
     path("api/", include("apps.projects.urls")),
+    path("api/", include("apps.activities.urls")),
     re_path(r"^(?!api/|static/).*$", spa_index, name="spa"),
 ]

@@ -17,6 +17,8 @@ pytestmark = pytest.mark.django_db
 RUTAS_DE_PROYECTO = [
     ("get", "/api/projects/{id}/"),
     ("post", "/api/projects/{id}/codigo/regenerar/"),
+    ("get", "/api/projects/{id}/activities/"),
+    ("post", "/api/projects/{id}/activities/"),
 ]
 
 RUTAS_CON_SESION = [
