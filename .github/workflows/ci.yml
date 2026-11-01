@@ -1,12 +1,11 @@
 # Integración continua del Gestor SQA (SQAP 5.1.2 c).
-# Corre en cada pull request a main y en cada push a main. La protección de la rama
-# exige que estos tres trabajos pasen antes de poder hacer merge.
+# Corre en cada pull request (también en los que van encima de otro PR) y en cada push
+# a main. La protección de main exige que estos tres trabajos pasen antes del merge.
 
 name: CI
 
 on:
   pull_request:
-    branches: [main]
   push:
     branches: [main]
 
