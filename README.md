@@ -34,7 +34,7 @@ cd backend
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements-dev.txt   # requiere el cliente de MariaDB/MySQL para mysqlclient
 export DB_ENGINE=sqlite DJANGO_DEBUG=1
-python manage.py migrate
+python manage.py migrate && python manage.py createcachetable
 pytest --cov
 
 # Frontend

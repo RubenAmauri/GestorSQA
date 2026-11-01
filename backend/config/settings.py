@@ -125,12 +125,28 @@ STORAGES = {
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 REST_FRAMEWORK = {
+    # Subclase que responde 401 (no 403) sin sesión (SDS 3.4).
     "DEFAULT_AUTHENTICATION_CLASSES": [
-        "rest_framework.authentication.SessionAuthentication",
+        "apps.core.authentication.SesionAuthentication",
     ],
     "DEFAULT_PERMISSION_CLASSES": [
         "rest_framework.permissions.IsAuthenticated",
     ],
+    # Límites de intentos (RNF-05). Cada vista elige su clase de límite en apps/core.
+    "DEFAULT_THROTTLE_RATES": {
+        "inicio_sesion": "5/min",
+    },
+    # Caddy es el único proxy delante de la app: la IP real es la última de X-Forwarded-For.
+    "NUM_PROXIES": 1,
+}
+
+# Caché en la base de datos para que los límites de intentos se compartan entre los
+# workers de gunicorn. La tabla se crea con `python manage.py createcachetable`.
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.db.DatabaseCache",
+        "LOCATION": "cache_django",
+    }
 }
 
 # Sesión con cookie (ADR-05).
