@@ -1,0 +1,26 @@
+# Secretos y configuración local
+.env
+*.env.local
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+backend/staticfiles/
+backend/db.sqlite3
+
+# Node
+node_modules/
+frontend/dist/
+frontend/coverage/
+
+# Editores y sistema
+.vscode/
+.idea/
+.DS_Store
