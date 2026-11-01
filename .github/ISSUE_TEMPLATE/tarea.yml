@@ -1,0 +1,34 @@
+name: Tarea
+description: Trabajo para implementar o documentar un requisito.
+title: "[RF-XX] "
+labels: ["tarea"]
+body:
+  - type: input
+    id: requisito
+    attributes:
+      label: Requisito
+      description: ID del requisito que atiende (SRS v1.1). Ej. RF-07, HU-06.
+    validations:
+      required: true
+  - type: textarea
+    id: descripcion
+    attributes:
+      label: Qué hay que hacer
+    validations:
+      required: true
+  - type: textarea
+    id: aceptacion
+    attributes:
+      label: Criterios de aceptación
+      description: Copia los CA de la historia de usuario y los IDs de prueba del catálogo (SQAP 5.1.2 e).
+    validations:
+      required: true
+  - type: dropdown
+    id: punto
+    attributes:
+      label: Punto de control
+      options:
+        - Versión Beta (3 de noviembre)
+        - Entrega Final (19 de noviembre)
+    validations:
+      required: true

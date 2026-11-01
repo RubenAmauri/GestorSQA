@@ -1,0 +1,11 @@
+# Imagen de desarrollo del backend (compose.dev.yml). El código se monta como volumen.
+FROM python:3.12-slim
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends pkg-config gcc libmariadb-dev \
+    && rm -rf /var/lib/apt/lists/*
+WORKDIR /app/backend
+COPY requirements.txt requirements-dev.txt ./
+RUN pip install --no-cache-dir -r requirements-dev.txt
+CMD ["sh", "-c", "python manage.py migrate --noinput && python manage.py runserver 0.0.0.0:8000"]

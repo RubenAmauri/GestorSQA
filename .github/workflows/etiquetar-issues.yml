@@ -1,0 +1,48 @@
+# Etiqueta automáticamente los defectos según lo que se eligió en el formulario
+# (tipo, severidad y momento de detección). Alimenta las medidas del SQAP 5.2.4.
+
+name: Etiquetar defectos
+
+on:
+  issues:
+    types: [opened, edited]
+
+permissions:
+  issues: write
+
+jobs:
+  etiquetar:
+    if: contains(github.event.issue.labels.*.name, 'defecto')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const cuerpo = context.payload.issue.body || ''
+            const campo = (titulo) => {
+              const m = cuerpo.match(new RegExp(`### ${titulo}\\s+([^\\n]+)`))
+              return m ? m[1].trim() : null
+            }
+            const mapas = {
+              tipo: { 'No conformidad': 'no-conformidad' },
+              severidad: { Alta: 'severidad:alta', Media: 'severidad:media', Baja: 'severidad:baja' },
+              deteccion: {
+                'Revisión': 'detectado:revision',
+                CI: 'detectado:ci',
+                'Prueba manual': 'detectado:prueba-manual',
+                'Auditoría': 'detectado:auditoria',
+                'Después de un punto de control': 'detectado:post-entrega',
+              },
+            }
+            const etiquetas = [
+              mapas.tipo[campo('Tipo')],
+              mapas.severidad[campo('Severidad')],
+              mapas.deteccion[campo('Detectado en')],
+            ].filter(Boolean)
+            if (etiquetas.length) {
+              await github.rest.issues.addLabels({
+                ...context.repo,
+                issue_number: context.payload.issue.number,
+                labels: etiquetas,
+              })
+            }
