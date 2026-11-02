@@ -1,7 +1,7 @@
 // Cliente de la API REST (SDS 3.4). La sesión viaja en una cookie del mismo
 // dominio, y toda petición que modifica datos lleva el token CSRF (ADR-05).
 
-function getCookie(name) {
+export function getCookie(name) {
   const match = document.cookie.match(new RegExp('(^|; )' + name + '=([^;]*)'))
   return match ? decodeURIComponent(match[2]) : null
 }
@@ -10,6 +10,9 @@ export async function apiFetch(path, { method = 'GET', body } = {}) {
   const headers = { Accept: 'application/json' }
   if (body !== undefined) headers['Content-Type'] = 'application/json'
   if (method !== 'GET') {
+    if (!getCookie('csrftoken')) {
+      await fetch('/api/auth/csrf/', { credentials: 'same-origin' })
+    }
     const token = getCookie('csrftoken')
     if (token) headers['X-CSRFToken'] = token
   }
