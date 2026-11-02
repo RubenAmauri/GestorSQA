@@ -1,0 +1,6 @@
+# Caddy obtiene y renueva solo el certificado HTTPS para el nombre DNS del servidor,
+# y redirige HTTP a HTTPS (RNF-05). DOMINIO viene del .env.
+{$DOMINIO} {
+	encode gzip
+	reverse_proxy app:8000
+}
