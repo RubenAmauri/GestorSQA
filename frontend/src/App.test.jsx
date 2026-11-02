@@ -684,3 +684,129 @@ describe('Métricas por sprint en el frontend (RF-07, HU-06, Lámina 07)', () =>
   })
 })
 
+describe('Actividades SQA en el frontend (RF-08, HU-04, HU-05, Láminas 08 a 08c)', () => {
+  const ACTIVIDAD_REALIZADA = {
+    id: 101,
+    sprint: 3,
+    tipo: 'PRUEBAS',
+    nombre_otra: '',
+    nombre: 'Pruebas',
+    estado: 'REALIZADA',
+    resultado: 'CON_HALLAZGOS',
+    fecha: '2026-09-15',
+    responsable: USUARIO_SESION,
+    descripcion: 'Pruebas de integración de la API',
+    hallazgos: 'Dos rutas sin validación',
+    evidencia_url: 'https://github.com/ejemplo/evidencia',
+  }
+
+  it('PR-RF08-01 a 03: valida campos condicionales (Otra y Realizada) y registra actividad', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation((url, opciones) => {
+      if (url === '/api/auth/me/') {
+        return Promise.resolve(respuestaJson(USUARIO_SESION, 200))
+      }
+      if (url === `/api/projects/${PROYECTO_ADMIN.id}/`) {
+        return Promise.resolve(respuestaJson(PROYECTO_ADMIN, 200))
+      }
+      if (url.startsWith(`/api/projects/${PROYECTO_ADMIN.id}/activities/`)) {
+        if (opciones?.method === 'POST') {
+          return Promise.resolve(respuestaJson(ACTIVIDAD_REALIZADA, 201))
+        }
+        return Promise.resolve(respuestaJson([], 200))
+      }
+      return Promise.resolve(respuestaVacia(404))
+    })
+
+    renderEn(`/proyectos/${PROYECTO_ADMIN.id}/actividades`)
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Registrar actividad' }),
+    )
+
+    // En estado Planeada, Resultado está oculto (Lámina 08c)
+    expect(
+      screen.queryByRole('group', { name: 'Resultado *' }),
+    ).not.toBeInTheDocument()
+    expect(
+      screen.queryByLabelText('Nombre de la actividad *'),
+    ).not.toBeInTheDocument()
+
+    // PR-RF08-03: elegir "Otra" exige nombre
+    fireEvent.change(screen.getByLabelText('Tipo *'), {
+      target: { value: 'OTRA' },
+    })
+    expect(
+      screen.getByLabelText('Nombre de la actividad *'),
+    ).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar' }))
+    expect(
+      await screen.findByText(
+        'Escribe el nombre de la actividad cuando el tipo es Otra.',
+      ),
+    ).toBeInTheDocument()
+
+    // PR-RF08-01: elegir "Realizada" exige resultado
+    fireEvent.change(screen.getByLabelText('Tipo *'), {
+      target: { value: 'PRUEBAS' },
+    })
+    fireEvent.click(screen.getByLabelText('Realizada'))
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar' }))
+    expect(
+      await screen.findByText('Una actividad Realizada necesita un resultado.'),
+    ).toBeInTheDocument()
+
+    // Selecciona resultado y guarda
+    fireEvent.click(screen.getByLabelText('Con hallazgos'))
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar' }))
+
+    expect(await screen.findAllByText('Pruebas')).not.toHaveLength(0)
+  })
+
+  it('PR-RF08-05 y detalle: filtra por sprint y estado, abre el detalle con "Ver" y oculta captura al Auditor', async () => {
+    const urlsConsultadas = []
+    vi.spyOn(globalThis, 'fetch').mockImplementation((url) => {
+      urlsConsultadas.push(url)
+      if (url === '/api/auth/me/') {
+        return Promise.resolve(respuestaJson(USUARIO_SESION, 200))
+      }
+      if (url === `/api/projects/${PROYECTO_ADMIN.id}/`) {
+        return Promise.resolve(
+          respuestaJson({ ...PROYECTO_ADMIN, mi_clase: 'AUDITOR' }, 200),
+        )
+      }
+      if (url.startsWith(`/api/projects/${PROYECTO_ADMIN.id}/activities/`)) {
+        return Promise.resolve(respuestaJson([ACTIVIDAD_REALIZADA], 200))
+      }
+      return Promise.resolve(respuestaVacia(404))
+    })
+
+    renderEn(`/proyectos/${PROYECTO_ADMIN.id}/actividades`)
+    expect(await screen.findAllByText('Pruebas')).not.toHaveLength(0)
+    // Lámina 08b: el Auditor no ve el botón "Registrar actividad"
+    expect(
+      screen.queryByRole('button', { name: 'Registrar actividad' }),
+    ).not.toBeInTheDocument()
+
+    // Abrir detalle con "Ver" (Lámina 08)
+    fireEvent.click(screen.getAllByRole('button', { name: 'Ver' })[0])
+    expect(
+      await screen.findByText('Pruebas de integración de la API'),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole('link', {
+        name: 'https://github.com/ejemplo/evidencia',
+      }),
+    ).toBeInTheDocument()
+
+    // PR-RF08-05: filtrar por estado
+    fireEvent.change(screen.getByLabelText('Estado'), {
+      target: { value: 'REALIZADA' },
+    })
+    await waitFor(() => {
+      expect(
+        urlsConsultadas.some((u) => u.includes('estado=REALIZADA')),
+      ).toBe(true)
+    })
+  })
+})
+
+

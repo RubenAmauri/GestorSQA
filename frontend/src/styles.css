@@ -453,6 +453,78 @@ body {
   font-size: 1.15rem;
 }
 
+/* Actividades SQA (Láminas 08, 08b y 08c) */
+.barra-filtros-actividades {
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.grupo-filtros {
+  display: flex;
+  gap: 12px;
+}
+
+.campo-filtro {
+  flex: 1;
+}
+
+.campo-filtro label {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 0.88rem;
+  color: #333333;
+}
+
+.campo-filtro select {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid #8a8a8a;
+  border-radius: 4px;
+  font-size: 0.95rem;
+  background: #ffffff;
+}
+
+.formulario-actividad {
+  max-width: 540px;
+  margin-bottom: 24px;
+}
+
+.grupo-radios {
+  border: none;
+  padding: 0;
+  margin: 0 0 16px;
+}
+
+.grupo-radios legend {
+  padding: 0;
+  margin-bottom: 6px;
+  font-size: 0.95rem;
+  color: #2c2c2c;
+}
+
+.opciones-radio {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  font-size: 0.95rem;
+}
+
+.panel-detalle-actividad {
+  margin-top: 16px;
+}
+
+.panel-detalle-actividad h3 {
+  margin: 0 0 10px;
+  font-size: 1rem;
+}
+
+.panel-detalle-actividad p {
+  margin: 6px 0;
+  font-size: 0.93rem;
+}
+
 .tarjeta-panel {
   padding: 20px;
   border: 1px solid #bdbdbd;
@@ -599,5 +671,15 @@ body {
     grid-template-columns: minmax(0, 1.5fr) minmax(300px, 1fr);
     align-items: start;
     gap: 28px;
+  }
+
+  .barra-filtros-actividades {
+    flex-direction: row;
+    align-items: flex-end;
+    justify-content: space-between;
+  }
+
+  .grupo-filtros {
+    min-width: 340px;
   }
 }
