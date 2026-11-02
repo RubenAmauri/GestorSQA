@@ -441,6 +441,18 @@ body {
   gap: 20px;
 }
 
+/* Métricas por sprint (Lámina 07) */
+.rejilla-metricas {
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 24px;
+}
+
+.columna-metricas-lista h2 {
+  margin: 0 0 14px;
+  font-size: 1.15rem;
+}
+
 .tarjeta-panel {
   padding: 20px;
   border: 1px solid #bdbdbd;
@@ -580,5 +592,12 @@ body {
 
   .rejilla-configuracion {
     grid-template-columns: repeat(auto-fit, minmax(320px, 460px));
+  }
+
+  .rejilla-metricas {
+    display: grid;
+    grid-template-columns: minmax(0, 1.5fr) minmax(300px, 1fr);
+    align-items: start;
+    gap: 28px;
   }
 }

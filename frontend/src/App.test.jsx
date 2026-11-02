@@ -326,6 +326,9 @@ describe('Proyectos y unión por código en el frontend (RF-02, RF-03, RF-06)', 
       if (url === `/api/projects/${PROYECTO_ADMIN.id}/`) {
         return Promise.resolve(respuestaJson(PROYECTO_ADMIN, 200))
       }
+      if (url === `/api/projects/${PROYECTO_ADMIN.id}/metrics/`) {
+        return Promise.resolve(respuestaJson([], 200))
+      }
       return Promise.resolve(respuestaVacia(404))
     })
 
@@ -529,3 +532,155 @@ describe('Proyectos y unión por código en el frontend (RF-02, RF-03, RF-06)', 
     ).toBeInTheDocument()
   })
 })
+
+describe('Métricas por sprint en el frontend (RF-07, HU-06, Lámina 07)', () => {
+  it('PR-RF07-01 y 05: captura métricas distinguiendo vacío (null) de 0 y actualiza la tabla', async () => {
+    let cuerpoEnviado = null
+    vi.spyOn(globalThis, 'fetch').mockImplementation((url, opciones) => {
+      if (url === '/api/auth/me/') {
+        return Promise.resolve(respuestaJson(USUARIO_SESION, 200))
+      }
+      if (url === `/api/projects/${PROYECTO_ADMIN.id}/`) {
+        return Promise.resolve(respuestaJson(PROYECTO_ADMIN, 200))
+      }
+      if (url === `/api/projects/${PROYECTO_ADMIN.id}/metrics/`) {
+        if (opciones?.method === 'POST') {
+          cuerpoEnviado = JSON.parse(opciones.body)
+          return Promise.resolve(
+            respuestaJson(
+              {
+                sprint: 1,
+                defectos_encontrados: 0,
+                defectos_corregidos: 5,
+                horas_correccion: 10,
+                kloc: 1.5,
+                cobertura_pct: null,
+              },
+              201,
+            ),
+          )
+        }
+        return Promise.resolve(respuestaJson([], 200))
+      }
+      return Promise.resolve(respuestaVacia(404))
+    })
+
+    renderEn(`/proyectos/${PROYECTO_ADMIN.id}/metricas`)
+    const inputSprint = await screen.findByLabelText('Sprint *')
+    expect(inputSprint).toHaveValue(1)
+
+    fireEvent.change(screen.getByLabelText('Def. encontrados'), {
+      target: { value: '0' },
+    })
+    fireEvent.change(screen.getByLabelText('Def. corregidos'), {
+      target: { value: '5' },
+    })
+    fireEvent.change(screen.getByLabelText('Horas de corrección'), {
+      target: { value: '10' },
+    })
+    fireEvent.change(screen.getByLabelText('KLOC (total)'), {
+      target: { value: '1.5' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar' }))
+
+    await waitFor(() => {
+      expect(cuerpoEnviado).toEqual({
+        sprint: 1,
+        defectos_encontrados: 0,
+        defectos_corregidos: 5,
+        horas_correccion: 10,
+        kloc: 1.5,
+        cobertura_pct: null,
+      })
+    })
+    expect(await screen.findByText('Sprint 1')).toBeInTheDocument()
+    expect(screen.getByLabelText('Sprint *')).toHaveValue(2)
+  })
+
+  it('PR-RF07-02 a 04: valida rangos y muestra error cuando el sprint está repetido (409)', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation((url, opciones) => {
+      if (url === '/api/auth/me/') {
+        return Promise.resolve(respuestaJson(USUARIO_SESION, 200))
+      }
+      if (url === `/api/projects/${PROYECTO_ADMIN.id}/`) {
+        return Promise.resolve(respuestaJson(PROYECTO_ADMIN, 200))
+      }
+      if (url === `/api/projects/${PROYECTO_ADMIN.id}/metrics/`) {
+        if (opciones?.method === 'POST') {
+          return Promise.resolve(
+            respuestaJson(
+              {
+                sprint: [
+                  'El sprint 1 ya tiene métricas registradas; usa Editar.',
+                ],
+              },
+              409,
+            ),
+          )
+        }
+        return Promise.resolve(respuestaJson([], 200))
+      }
+      return Promise.resolve(respuestaVacia(404))
+    })
+
+    renderEn(`/proyectos/${PROYECTO_ADMIN.id}/metricas`)
+    await screen.findByLabelText('Sprint *')
+
+    // PR-RF07-03 y 04: cobertura > 100 y negativos
+    fireEvent.change(screen.getByLabelText('Def. encontrados'), {
+      target: { value: '-2' },
+    })
+    fireEvent.change(screen.getByLabelText('Cobertura (%)'), {
+      target: { value: '120' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar' }))
+
+    expect(
+      await screen.findByText('El valor no puede ser negativo.'),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText('La cobertura debe estar entre 0 y 100.'),
+    ).toBeInTheDocument()
+
+    // PR-RF07-02: sprint repetido (409)
+    fireEvent.change(screen.getByLabelText('Def. encontrados'), {
+      target: { value: '3' },
+    })
+    fireEvent.change(screen.getByLabelText('Cobertura (%)'), {
+      target: { value: '80' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar' }))
+
+    expect(
+      await screen.findByText(
+        'El sprint 1 ya tiene métricas registradas; usa Editar.',
+      ),
+    ).toBeInTheDocument()
+  })
+
+  it('PR-RF05-01: oculta el formulario de captura de métricas para el Auditor', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation((url) => {
+      if (url === '/api/auth/me/') {
+        return Promise.resolve(respuestaJson(USUARIO_SESION, 200))
+      }
+      if (url === `/api/projects/${PROYECTO_ADMIN.id}/`) {
+        return Promise.resolve(
+          respuestaJson({ ...PROYECTO_ADMIN, mi_clase: 'AUDITOR' }, 200),
+        )
+      }
+      if (url === `/api/projects/${PROYECTO_ADMIN.id}/metrics/`) {
+        return Promise.resolve(respuestaJson([], 200))
+      }
+      return Promise.resolve(respuestaVacia(404))
+    })
+
+    renderEn(`/proyectos/${PROYECTO_ADMIN.id}/metricas`)
+    expect(
+      await screen.findByRole('heading', { name: 'Métricas por sprint' }),
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByRole('heading', { name: 'Capturar sprint' }),
+    ).not.toBeInTheDocument()
+  })
+})
+
