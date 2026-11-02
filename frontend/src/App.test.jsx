@@ -22,6 +22,18 @@ function renderEn(ruta) {
   )
 }
 
+const USUARIO_SESION = { id: 1, email: 'ana@correo.com' }
+
+const PROYECTO_ADMIN = {
+  id: 7,
+  nombre: 'Gestor SQA',
+  periodo_nombre: '2026-2',
+  fecha_inicio: '2026-08-10',
+  fecha_fin: '2026-12-04',
+  mi_clase: 'ADMIN_CREADOR',
+  codigo_union: 'ABC1234567',
+}
+
 afterEach(() => {
   vi.restoreAllMocks()
 })
@@ -39,9 +51,7 @@ describe('Cuentas y sesión en el frontend (RF-01, HU-10, SDS 3.5)', () => {
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation((url) => {
       if (url === '/api/auth/me/') return Promise.resolve(respuestaVacia(401))
       if (url === '/api/auth/register/') {
-        return Promise.resolve(
-          respuestaJson({ id: 1, email: 'ana@correo.com' }, 201),
-        )
+        return Promise.resolve(respuestaJson(USUARIO_SESION, 201))
       }
       return Promise.resolve(respuestaVacia(404))
     })
@@ -130,17 +140,10 @@ describe('Cuentas y sesión en el frontend (RF-01, HU-10, SDS 3.5)', () => {
     vi.spyOn(globalThis, 'fetch').mockImplementation((url) => {
       if (url === '/api/auth/me/') return Promise.resolve(respuestaVacia(401))
       if (url === '/api/auth/login/') {
-        return Promise.resolve(
-          respuestaJson({ id: 1, email: 'ana@correo.com' }, 200),
-        )
+        return Promise.resolve(respuestaJson(USUARIO_SESION, 200))
       }
       if (url === '/api/projects/') {
-        return Promise.resolve(
-          respuestaJson([{ id: 10, nombre: 'Gestor SQA' }], 200),
-        )
-      }
-      if (url === '/api/health/') {
-        return Promise.resolve(respuestaJson({ status: 'ok' }, 200))
+        return Promise.resolve(respuestaJson([PROYECTO_ADMIN], 200))
       }
       return Promise.resolve(respuestaVacia(404))
     })
@@ -157,7 +160,7 @@ describe('Cuentas y sesión en el frontend (RF-01, HU-10, SDS 3.5)', () => {
     expect(
       await screen.findByRole('heading', { name: 'Mis proyectos' }),
     ).toBeInTheDocument()
-    expect(await screen.findByText('Servicio: disponible')).toBeInTheDocument()
+    expect(await screen.findAllByText('Gestor SQA')).not.toHaveLength(0)
   })
 
   it('inicia sesión y lleva a /proyectos/nuevo cuando el usuario no tiene proyectos (SDS 3.5)', async () => {
@@ -208,9 +211,9 @@ describe('Cuentas y sesión en el frontend (RF-01, HU-10, SDS 3.5)', () => {
     })
     fireEvent.click(screen.getByRole('button', { name: 'Iniciar sesión' }))
 
-    expect(
-      await screen.findByRole('alert'),
-    ).toHaveTextContent('Correo o contraseña incorrectos.')
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Correo o contraseña incorrectos.',
+    )
   })
 
   it('PR-RNF05-02: informa cuando se excede el límite de intentos de inicio de sesión (429)', async () => {
@@ -239,12 +242,10 @@ describe('Cuentas y sesión en el frontend (RF-01, HU-10, SDS 3.5)', () => {
   it('PR-RF01-05 (CA-04): cierra la sesión y vuelve a /login', async () => {
     vi.spyOn(globalThis, 'fetch').mockImplementation((url) => {
       if (url === '/api/auth/me/') {
-        return Promise.resolve(
-          respuestaJson({ id: 1, email: 'ana@correo.com' }, 200),
-        )
+        return Promise.resolve(respuestaJson(USUARIO_SESION, 200))
       }
-      if (url === '/api/health/') {
-        return Promise.resolve(respuestaJson({ status: 'ok' }, 200))
+      if (url === '/api/projects/') {
+        return Promise.resolve(respuestaJson([PROYECTO_ADMIN], 200))
       }
       if (url === '/api/auth/logout/') {
         return Promise.resolve(respuestaVacia(204))
@@ -309,6 +310,222 @@ describe('Cuentas y sesión en el frontend (RF-01, HU-10, SDS 3.5)', () => {
     renderEn('/ruta/que/no/existe')
     expect(
       await screen.findByRole('heading', { name: 'Página no encontrada' }),
+    ).toBeInTheDocument()
+  })
+})
+
+describe('Proyectos y unión por código en el frontend (RF-02, RF-03, RF-06)', () => {
+  it('PR-RF02-01: registra un proyecto válido y lleva a /proyectos/:id/metricas (RNF-04)', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation((url, opciones) => {
+      if (url === '/api/auth/me/') {
+        return Promise.resolve(respuestaJson(USUARIO_SESION, 200))
+      }
+      if (url === '/api/projects/' && opciones?.method === 'POST') {
+        return Promise.resolve(respuestaJson(PROYECTO_ADMIN, 201))
+      }
+      if (url === `/api/projects/${PROYECTO_ADMIN.id}/`) {
+        return Promise.resolve(respuestaJson(PROYECTO_ADMIN, 200))
+      }
+      return Promise.resolve(respuestaVacia(404))
+    })
+
+    renderEn('/proyectos/nuevo')
+    fireEvent.change(await screen.findByLabelText('Nombre del proyecto *'), {
+      target: { value: 'Gestor SQA' },
+    })
+    fireEvent.change(screen.getByLabelText('Nombre del periodo *'), {
+      target: { value: '2026-2' },
+    })
+    fireEvent.change(screen.getByLabelText('Fecha de inicio *'), {
+      target: { value: '2026-08-10' },
+    })
+    fireEvent.change(screen.getByLabelText('Fecha de fin *'), {
+      target: { value: '2026-12-04' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Registrar proyecto' }))
+
+    expect(
+      await screen.findByRole('heading', { name: 'Métricas por sprint' }),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText('Tu clase: Admin Creador'),
+    ).toBeInTheDocument()
+  })
+
+  it('PR-RF02-02 (CA-02, Lámina 04b): muestra aviso general y error junto al campo cuando el proyecto está duplicado (409)', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation((url, opciones) => {
+      if (url === '/api/auth/me/') {
+        return Promise.resolve(respuestaJson(USUARIO_SESION, 200))
+      }
+      if (url === '/api/projects/' && opciones?.method === 'POST') {
+        return Promise.resolve(
+          respuestaJson(
+            {
+              detail:
+                'Ya registraste un proyecto con este nombre en este periodo.',
+            },
+            409,
+          ),
+        )
+      }
+      return Promise.resolve(respuestaVacia(404))
+    })
+
+    renderEn('/proyectos/nuevo')
+    const inputNombre = await screen.findByLabelText('Nombre del proyecto *')
+    fireEvent.change(inputNombre, { target: { value: 'gestor SQA' } })
+    fireEvent.change(screen.getByLabelText('Nombre del periodo *'), {
+      target: { value: '2026-2' },
+    })
+    fireEvent.change(screen.getByLabelText('Fecha de inicio *'), {
+      target: { value: '2026-08-10' },
+    })
+    fireEvent.change(screen.getByLabelText('Fecha de fin *'), {
+      target: { value: '2026-12-04' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Registrar proyecto' }))
+
+    expect(
+      await screen.findByText(
+        'Ya registraste un proyecto con este nombre en este periodo. Cambia el nombre o el periodo.',
+      ),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText('Nombre repetido en el periodo 2026-2.'),
+    ).toBeInTheDocument()
+    expect(inputNombre).toHaveValue('gestor SQA')
+  })
+
+  it('PR-RF02-04 (CA-01): valida que la fecha de fin no sea anterior a la de inicio', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation((url) => {
+      if (url === '/api/auth/me/') {
+        return Promise.resolve(respuestaJson(USUARIO_SESION, 200))
+      }
+      return Promise.resolve(respuestaVacia(404))
+    })
+
+    renderEn('/proyectos/nuevo')
+    fireEvent.change(await screen.findByLabelText('Nombre del proyecto *'), {
+      target: { value: 'Gestor SQA' },
+    })
+    fireEvent.change(screen.getByLabelText('Nombre del periodo *'), {
+      target: { value: '2026-2' },
+    })
+    fireEvent.change(screen.getByLabelText('Fecha de inicio *'), {
+      target: { value: '2026-12-04' },
+    })
+    fireEvent.change(screen.getByLabelText('Fecha de fin *'), {
+      target: { value: '2026-08-10' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Registrar proyecto' }))
+
+    expect(
+      await screen.findByText(
+        'La fecha de fin no puede ser anterior a la fecha de inicio.',
+      ),
+    ).toBeInTheDocument()
+  })
+
+  it('PR-RF03-01 a 03: permite unirse con código válido y muestra errores en 400 y 409', async () => {
+    let estadoRespuesta = 400
+    vi.spyOn(globalThis, 'fetch').mockImplementation((url) => {
+      if (url === '/api/auth/me/') {
+        return Promise.resolve(respuestaJson(USUARIO_SESION, 200))
+      }
+      if (url === '/api/projects/join/') {
+        if (estadoRespuesta === 400) {
+          return Promise.resolve(
+            respuestaJson({ detail: 'El código no es válido.' }, 400),
+          )
+        }
+        if (estadoRespuesta === 409) {
+          return Promise.resolve(
+            respuestaJson({ detail: 'Ya eres miembro de este proyecto.' }, 409),
+          )
+        }
+        return Promise.resolve(
+          respuestaJson({ ...PROYECTO_ADMIN, mi_clase: 'COLABORADOR' }, 201),
+        )
+      }
+      if (url === `/api/projects/${PROYECTO_ADMIN.id}/`) {
+        return Promise.resolve(
+          respuestaJson({ ...PROYECTO_ADMIN, mi_clase: 'COLABORADOR' }, 200),
+        )
+      }
+      return Promise.resolve(respuestaVacia(404))
+    })
+
+    renderEn('/proyectos/unirse')
+    const inputCodigo = await screen.findByLabelText('Código del proyecto')
+
+    // PR-RF03-02: código inválido -> 400
+    fireEvent.change(inputCodigo, { target: { value: 'NOEXISTE00' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Unirse' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'El código no es válido.',
+    )
+
+    // PR-RF03-03: ya es miembro -> 409
+    estadoRespuesta = 409
+    fireEvent.click(screen.getByRole('button', { name: 'Unirse' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Ya eres miembro de este proyecto.',
+    )
+
+    // PR-RF03-01: código válido -> va al reporte del proyecto como Colaborador
+    estadoRespuesta = 201
+    fireEvent.click(screen.getByRole('button', { name: 'Unirse' }))
+    expect(
+      await screen.findByText('Tu clase: Colaborador'),
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByRole('link', { name: 'Configuración' }),
+    ).not.toBeInTheDocument()
+  })
+
+  it('PR-RF03-04 (Lámina 10): regenera el código de unión desde Configuración tras confirmar', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation((url) => {
+      if (url === '/api/auth/me/') {
+        return Promise.resolve(respuestaJson(USUARIO_SESION, 200))
+      }
+      if (url === `/api/projects/${PROYECTO_ADMIN.id}/`) {
+        return Promise.resolve(respuestaJson(PROYECTO_ADMIN, 200))
+      }
+      if (url === `/api/projects/${PROYECTO_ADMIN.id}/codigo/regenerar/`) {
+        return Promise.resolve(
+          respuestaJson({ codigo_union: 'NUEVO99999' }, 200),
+        )
+      }
+      return Promise.resolve(respuestaVacia(404))
+    })
+
+    renderEn(`/proyectos/${PROYECTO_ADMIN.id}/configuracion`)
+    expect(
+      await screen.findByText(PROYECTO_ADMIN.codigo_union),
+    ).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Regenerar código' }))
+    expect(
+      screen.getByText('¿Regenerar el código de unión?'),
+    ).toBeInTheDocument()
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Confirmar regeneración' }),
+    )
+    expect(await screen.findByText('NUEVO99999')).toBeInTheDocument()
+  })
+
+  it('PR-RNF03-01 (ADR-06): muestra "Proyecto no encontrado" cuando el usuario no es miembro (404)', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation((url) => {
+      if (url === '/api/auth/me/') {
+        return Promise.resolve(respuestaJson(USUARIO_SESION, 200))
+      }
+      return Promise.resolve(respuestaVacia(404))
+    })
+
+    renderEn('/proyectos/999')
+    expect(
+      await screen.findByRole('heading', { name: 'Proyecto no encontrado' }),
     ).toBeInTheDocument()
   })
 })
