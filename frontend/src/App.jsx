@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, Navigate, Route, Routes, useNavigate } from 'react-router-dom'
 import { apiFetch } from './api.js'
+import { SeccionMetricas } from './Metricas.jsx'
 import {
   MisProyectos,
   NuevoProyecto,
@@ -124,7 +125,7 @@ export default function App() {
             path="/proyectos/:id/*"
             element={
               <RutaProtegida usuario={usuario} cargando={cargandoSesion}>
-                <VistaProyecto />
+                <VistaProyecto SeccionMetricas={SeccionMetricas} />
               </RutaProtegida>
             }
           />
