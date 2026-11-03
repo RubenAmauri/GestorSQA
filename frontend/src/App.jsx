@@ -10,6 +10,7 @@ import {
   VistaProyecto,
 } from './Proyectos.jsx'
 import { BarraSuperior, InicioSesion, Registro } from './Sesion.jsx'
+import { SeccionReporte } from './Reporte.jsx'
 
 function NoEncontrado() {
   return (
@@ -128,6 +129,7 @@ export default function App() {
               <RutaProtegida usuario={usuario} cargando={cargandoSesion}>
                 <VistaProyecto
                   usuario={usuario}
+                  SeccionReporte={SeccionReporte}
                   SeccionMetricas={SeccionMetricas}
                   SeccionActividades={SeccionActividades}
                 />

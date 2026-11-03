@@ -525,6 +525,156 @@ body {
   font-size: 0.93rem;
 }
 
+/* Reporte de salud y niveles (Láminas 06 y 06b, SDS 3.5) */
+.insignia-nivel {
+  display: inline-block;
+  padding: 2px 10px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  border-radius: 3px;
+  background: #ffffff;
+  color: #1f1f1f;
+}
+
+.insignia-grande {
+  padding: 6px 16px;
+  font-size: 1rem;
+}
+
+.insignia-optimo {
+  border: 1px solid #1f1f1f;
+}
+
+.insignia-advertencia,
+.insignia-sin-datos {
+  border: 1px dashed #1f1f1f;
+}
+
+.insignia-critico {
+  border: 3px double #1f1f1f;
+}
+
+.insignia-sin-evaluacion,
+.insignia-no-aplica {
+  border: 1px dotted #555555;
+  color: #333333;
+}
+
+.recuadro-sin-evaluacion {
+  max-width: 620px;
+  margin: 32px auto;
+  padding: 36px 24px;
+  border: 1px dashed #8a8a8a;
+  border-radius: 6px;
+  background: #ffffff;
+  text-align: center;
+}
+
+.fila-insignia-sin-evaluacion {
+  margin-bottom: 16px;
+}
+
+.texto-sin-evaluacion {
+  margin: 0 auto 20px;
+  max-width: 480px;
+  color: #333333;
+}
+
+.acciones-sin-evaluacion {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.barra-estado-general {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-bottom: 24px;
+}
+
+.grupo-estado-general {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.etiqueta-estado-general {
+  font-size: 0.95rem;
+}
+
+.texto-sprint-referencia {
+  font-size: 0.95rem;
+  color: #444444;
+}
+
+.acciones-reporte {
+  gap: 10px;
+}
+
+.contenedor-reporte h2 {
+  margin: 22px 0 12px;
+  font-size: 1.1rem;
+}
+
+.rejilla-indicadores {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.tarjeta-indicador {
+  padding: 14px 16px;
+  border: 1px solid #b5b5b5;
+  border-radius: 6px;
+  background: #ffffff;
+}
+
+.titulo-indicador {
+  margin: 0 0 6px;
+  font-size: 0.88rem;
+  color: #4a4a4a;
+}
+
+.valor-indicador {
+  margin: 0 0 10px;
+  font-size: 1.35rem;
+}
+
+.unidad-indicador {
+  font-size: 0.85rem;
+  font-weight: 400;
+  color: #4a4a4a;
+}
+
+.fila-historial-movil {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.cabecera-actividades-reporte {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 22px;
+}
+
+.acciones-reporte-movil {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.acciones-reporte-movil .boton-secundario {
+  width: 100%;
+}
+
 .tarjeta-panel {
   padding: 20px;
   border: 1px solid #bdbdbd;
@@ -681,5 +831,30 @@ body {
 
   .grupo-filtros {
     min-width: 340px;
+  }
+
+  .barra-estado-general {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .rejilla-indicadores {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+  }
+
+  .acciones-reporte-movil {
+    display: none;
+  }
+}
+
+@media print {
+  .barra-superior,
+  .pestanas-proyecto,
+  .selector-seccion-movil,
+  .acciones-reporte,
+  .acciones-reporte-movil {
+    display: none !important;
   }
 }

@@ -455,6 +455,21 @@ describe('Proyectos y unión por código en el frontend (RF-02, RF-03, RF-06)', 
           respuestaJson({ ...PROYECTO_ADMIN, mi_clase: 'COLABORADOR' }, 200),
         )
       }
+      if (url === `/api/projects/${PROYECTO_ADMIN.id}/report/`) {
+        return Promise.resolve(
+          respuestaJson(
+            {
+              proyecto: PROYECTO_ADMIN,
+              estado_general: 'SIN_EVALUACION',
+              sprint_referencia: null,
+              indicadores: null,
+              historial: [],
+              actividades: [],
+            },
+            200,
+          ),
+        )
+      }
       return Promise.resolve(respuestaVacia(404))
     })
 
@@ -808,5 +823,120 @@ describe('Actividades SQA en el frontend (RF-08, HU-04, HU-05, Láminas 08 a 08c
     })
   })
 })
+
+describe('Reporte de salud en el frontend (RF-10, RF-11, HU-07, Láminas 06 y 06b)', () => {
+  it('PR-RF11-02 (Lámina 06b): muestra "SIN EVALUACIÓN" y enlace a registrar la primera métrica cuando no hay datos', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation((url) => {
+      if (url === '/api/auth/me/') {
+        return Promise.resolve(respuestaJson(USUARIO_SESION, 200))
+      }
+      if (url === `/api/projects/${PROYECTO_ADMIN.id}/`) {
+        return Promise.resolve(respuestaJson(PROYECTO_ADMIN, 200))
+      }
+      if (url === `/api/projects/${PROYECTO_ADMIN.id}/report/`) {
+        return Promise.resolve(
+          respuestaJson(
+            {
+              proyecto: PROYECTO_ADMIN,
+              estado_general: 'SIN_EVALUACION',
+              sprint_referencia: null,
+              indicadores: null,
+              historial: [],
+              actividades: [],
+            },
+            200,
+          ),
+        )
+      }
+      return Promise.resolve(respuestaVacia(404))
+    })
+
+    renderEn(`/proyectos/${PROYECTO_ADMIN.id}`)
+    expect(await screen.findByText('SIN EVALUACIÓN')).toBeInTheDocument()
+    expect(
+      screen.getByRole('link', { name: 'Registrar la primera métrica' }),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole('link', { name: 'o registrar una actividad SQA' }),
+    ).toBeInTheDocument()
+  })
+
+  it('PR-RF10 y PR-RF11-01/04 (Lámina 06): renderiza estado general, indicadores del sprint de referencia, historial y actividades', async () => {
+    const reporteEjemplo = {
+      proyecto: PROYECTO_ADMIN,
+      estado_general: 'ADVERTENCIA',
+      sprint_referencia: 3,
+      indicadores: {
+        sprint: 3,
+        nivel: 'ADVERTENCIA',
+        densidad: { nivel: 'ADVERTENCIA', valor: 6.11 },
+        cobertura: { nivel: 'OPTIMO', valor: 78 },
+        tiempo_correccion: { nivel: 'OPTIMO', valor: 3.5 },
+        actividades: { nivel: 'OPTIMO', valor: 2 },
+        actividades_planeadas: 2,
+        actividades_realizadas: 2,
+      },
+      historial: [
+        {
+          sprint: 1,
+          nivel: 'CRITICO',
+          densidad: { nivel: 'CRITICO', valor: 11.4 },
+          cobertura: { nivel: 'SIN_DATOS', valor: null },
+          tiempo_correccion: { nivel: 'ADVERTENCIA', valor: 6 },
+          actividades: { nivel: 'ADVERTENCIA', valor: 1 },
+          actividades_planeadas: 2,
+          actividades_realizadas: 1,
+        },
+        {
+          sprint: 3,
+          nivel: 'ADVERTENCIA',
+          densidad: { nivel: 'ADVERTENCIA', valor: 6.11 },
+          cobertura: { nivel: 'OPTIMO', valor: 78 },
+          tiempo_correccion: { nivel: 'OPTIMO', valor: 3.5 },
+          actividades: { nivel: 'OPTIMO', valor: 2 },
+          actividades_planeadas: 2,
+          actividades_realizadas: 2,
+        },
+      ],
+      actividades: [
+        {
+          id: 50,
+          sprint: 3,
+          tipo: 'REVISION_CODIGO',
+          nombre: 'Revisión de código',
+          estado: 'REALIZADA',
+          resultado: 'SATISFACTORIO',
+          responsable: 'ana@correo.com',
+          fecha: '2026-09-10',
+        },
+      ],
+    }
+
+    vi.spyOn(globalThis, 'fetch').mockImplementation((url) => {
+      if (url === '/api/auth/me/') {
+        return Promise.resolve(respuestaJson(USUARIO_SESION, 200))
+      }
+      if (url === `/api/projects/${PROYECTO_ADMIN.id}/`) {
+        return Promise.resolve(respuestaJson(PROYECTO_ADMIN, 200))
+      }
+      if (url === `/api/projects/${PROYECTO_ADMIN.id}/report/`) {
+        return Promise.resolve(respuestaJson(reporteEjemplo, 200))
+      }
+      return Promise.resolve(respuestaVacia(404))
+    })
+
+    renderEn(`/proyectos/${PROYECTO_ADMIN.id}`)
+    expect(
+      await screen.findByRole('heading', { name: 'Indicadores del sprint 3' }),
+    ).toBeInTheDocument()
+    expect(screen.getByText('Sprint de referencia: 3')).toBeInTheDocument()
+    expect(screen.getAllByText('6.11')).not.toHaveLength(0)
+    expect(screen.getAllByText('78 %')).not.toHaveLength(0)
+    expect(screen.getAllByText('3.5 h')).not.toHaveLength(0)
+    expect(screen.getByText('2 / 1')).toBeInTheDocument()
+    expect(screen.getByText('Revisión de código')).toBeInTheDocument()
+  })
+})
+
 
 
