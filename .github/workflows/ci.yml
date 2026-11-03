@@ -1,12 +1,11 @@
 # Integración continua del Gestor SQA (SQAP 5.1.2 c).
-# Corre en cada pull request a main y en cada push a main. La protección de la rama
-# exige que estos tres trabajos pasen antes de poder hacer merge.
+# Corre en cada pull request (también en los que van encima de otro PR) y en cada push
+# a main. La protección de main exige que estos tres trabajos pasen antes del merge.
 
 name: CI
 
 on:
   pull_request:
-    branches: [main]
   push:
     branches: [main]
 
@@ -70,6 +69,10 @@ jobs:
         run: python manage.py makemigrations --check --dry-run
       - name: Pruebas con cobertura ≥ 75 %
         run: pytest --cov --cov-report=term --cov-report=xml --cov-fail-under=75
+      - name: Cobertura ≥ 90 % en partes de riesgo alto (motor de salud y core)
+        run: |
+          coverage report --fail-under=90 \
+            --include="apps/reports/salud.py,apps/reports/umbrales.py,apps/core/*"
       - name: PR-RNF05-03 · Configuración segura de despliegue
         env:
           DJANGO_DEBUG: "0"
