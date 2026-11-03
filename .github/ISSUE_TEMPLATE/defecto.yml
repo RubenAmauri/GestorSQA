@@ -1,0 +1,56 @@
+name: Defecto o no conformidad
+description: Registra un defecto del producto o una no conformidad con el SQAP (SQAP 6.7).
+title: "[RF-XX] "
+labels: ["defecto"]
+body:
+  - type: dropdown
+    id: tipo
+    attributes:
+      label: Tipo
+      options:
+        - Defecto
+        - No conformidad
+    validations:
+      required: true
+  - type: dropdown
+    id: severidad
+    attributes:
+      label: Severidad
+      description: "Criterios en el SQAP 6.7.1."
+      options:
+        - Alta
+        - Media
+        - Baja
+    validations:
+      required: true
+  - type: dropdown
+    id: deteccion
+    attributes:
+      label: Detectado en
+      options:
+        - Revisión
+        - CI
+        - Prueba manual
+        - Auditoría
+        - Después de un punto de control
+    validations:
+      required: true
+  - type: input
+    id: requisito
+    attributes:
+      label: Requisito afectado
+      description: Ej. RF-10, RNF-03. Si es una no conformidad, la sección del SQAP.
+    validations:
+      required: true
+  - type: textarea
+    id: descripcion
+    attributes:
+      label: Qué pasa y cómo reproducirlo
+    validations:
+      required: true
+  - type: textarea
+    id: esperado
+    attributes:
+      label: Qué se esperaba
+    validations:
+      required: true

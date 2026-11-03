@@ -1,0 +1,58 @@
+# Entorno de desarrollo (SDS 5.3): MariaDB + Django + Vite.
+# Antes de la primera vez: cp .env.example .env  (y cambia las contraseñas).
+# Las contraseñas se leen del .env, que nunca se sube al repositorio (SQAP 7.1.2).
+# Uso: docker compose -f compose.dev.yml up --build
+# Interfaz: http://localhost:5173 · API: http://localhost:8000/api/health/
+
+services:
+  db:
+    image: mariadb:11.4
+    environment:
+      MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD:?Copia .env.example como .env}
+      MARIADB_DATABASE: ${DB_NAME:-gestorsqa}
+    volumes:
+      - db_dev:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
+    environment:
+      DJANGO_DEBUG: "1"
+      DB_ENGINE: mysql
+      DB_NAME: ${DB_NAME:-gestorsqa}
+      # En desarrollo se usa root para que pytest pueda crear la base de datos de pruebas.
+      DB_USER: root
+      DB_PASSWORD: ${MARIADB_ROOT_PASSWORD:?Copia .env.example como .env}
+      DB_HOST: db
+      DB_PORT: "3306"
+    volumes:
+      - ./backend:/app/backend
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    image: node:22-alpine
+    working_dir: /app/frontend
+    command: sh -c "npm ci --no-audit --no-fund && npm run dev"
+    environment:
+      VITE_API_PROXY: http://backend:8000
+    volumes:
+      - ./frontend:/app/frontend
+      - frontend_node_modules:/app/frontend/node_modules
+    ports:
+      - "5173:5173"
+    depends_on:
+      - backend
+
+volumes:
+  db_dev:
+  frontend_node_modules:
