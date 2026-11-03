@@ -5,7 +5,7 @@
 | Rol                                | Persona |
 | ---------------------------------- | ------- |
 | Responsable de QA                  |         |
-| Responsable técnico                |         |
+| Responsable técnico                | Rubén   |
 | Responsable de gestión de proyecto | Antonio |
 | Desarrollador                      |         |
 | Desarrollador                      |         |
@@ -17,7 +17,7 @@ Autoevaluación al inicio de la construcción: 0 = no lo conozco · 1 = lo he us
 | Integrante | Django / DRF | React | pytest | Docker | Locust | GitHub (PR y revisiones) | IEEE 730 / ISO 25010 |
 | ---------- | ------------ | ----- | ------ | ------ | ------ | ------------------------ | -------------------- |
 | Antonio    | 2            | 1     | 1      | 2      | 0      | 2                        | 1                    |
-|            |              |       |        |        |        |                          |                      |
+| Rubén      | 2            | 2     | 2      | 2      | 1      | 2                        | 1                    |
 |            |              |       |        |        |        |                          |                      |
 |            |              |       |        |        |        |                          |                      |
 |            |              |       |        |        |        |                          |                      |
