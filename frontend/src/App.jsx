@@ -1,41 +1,13 @@
 import { useEffect, useState } from 'react'
 import { Link, Navigate, Route, Routes, useNavigate } from 'react-router-dom'
 import { apiFetch } from './api.js'
+import {
+  MisProyectos,
+  NuevoProyecto,
+  UnirseProyecto,
+  VistaProyecto,
+} from './Proyectos.jsx'
 import { BarraSuperior, InicioSesion, Registro } from './Sesion.jsx'
-
-function EstadoServicio() {
-  const [estado, setEstado] = useState('consultando')
-
-  useEffect(() => {
-    let activo = true
-    apiFetch('health/')
-      .then(({ ok }) => activo && setEstado(ok ? 'disponible' : 'con problemas'))
-      .catch(() => activo && setEstado('sin conexión'))
-    return () => {
-      activo = false
-    }
-  }, [])
-
-  return <p role="status">Servicio: {estado}</p>
-}
-
-function MisProyectos() {
-  return (
-    <section>
-      <h1>Mis proyectos</h1>
-      <p>Solo se listan los proyectos donde eres miembro.</p>
-      <EstadoServicio />
-    </section>
-  )
-}
-
-function NuevoProyecto() {
-  return (
-    <section>
-      <h1>Registrar proyecto</h1>
-    </section>
-  )
-}
 
 function NoEncontrado() {
   return (
@@ -137,6 +109,22 @@ export default function App() {
             element={
               <RutaProtegida usuario={usuario} cargando={cargandoSesion}>
                 <NuevoProyecto />
+              </RutaProtegida>
+            }
+          />
+          <Route
+            path="/proyectos/unirse"
+            element={
+              <RutaProtegida usuario={usuario} cargando={cargandoSesion}>
+                <UnirseProyecto />
+              </RutaProtegida>
+            }
+          />
+          <Route
+            path="/proyectos/:id/*"
+            element={
+              <RutaProtegida usuario={usuario} cargando={cargandoSesion}>
+                <VistaProyecto />
               </RutaProtegida>
             }
           />

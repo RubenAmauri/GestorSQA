@@ -9,6 +9,9 @@ export default defineConfig(({ command }) => ({
   plugins: [react()],
   server: {
     port: 5173,
+    watch: {
+      usePolling: true,
+    },
     proxy: {
       '/api': {
         target: process.env.VITE_API_PROXY ?? 'http://localhost:8000',
