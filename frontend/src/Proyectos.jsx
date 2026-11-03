@@ -431,6 +431,7 @@ export function UnirseProyecto() {
 /* --- Marco de un proyecto (/proyectos/:id/*) y Configuración (Lámina 10) --- */
 
 export function VistaProyecto({
+  usuario,
   SeccionReporte,
   SeccionMetricas,
   SeccionActividades,
@@ -566,7 +567,7 @@ export function VistaProyecto({
           path="actividades"
           element={
             SeccionActividades ? (
-              <SeccionActividades proyecto={proyecto} />
+              <SeccionActividades proyecto={proyecto} usuario={usuario} />
             ) : (
               <SeccionPendiente titulo="Actividades SQA" />
             )
