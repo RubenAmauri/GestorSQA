@@ -1,0 +1,57 @@
+# Despliegue de producción del Gestor SQA (ADR-08, SDS 5).
+# Tres servicios: Caddy (HTTPS), la aplicación (Django + gunicorn) y MariaDB.
+# Requiere el archivo .env (basado en .env.example). Uso: ./deploy.sh
+
+services:
+  db:
+    image: mariadb:11.4
+    restart: unless-stopped
+    environment:
+      MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD:?Falta MARIADB_ROOT_PASSWORD en .env}
+      MARIADB_DATABASE: ${DB_NAME:-gestorsqa}
+      MARIADB_USER: ${DB_USER:-gestorsqa}
+      MARIADB_PASSWORD: ${DB_PASSWORD:?Falta DB_PASSWORD en .env}
+    volumes:
+      - db_data:/var/lib/mysql
+    # Sin "ports": la base de datos no se publica fuera de la VM (SDS 5.1).
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  app:
+    build: .
+    image: gestor-sqa:latest
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DJANGO_DEBUG: "0"
+      DB_ENGINE: mysql
+      DB_HOST: db
+      DB_PORT: "3306"
+    expose:
+      - "8000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  proxy:
+    image: caddy:2.8
+    restart: unless-stopped
+    environment:
+      DOMINIO: ${DOMINIO:?Falta DOMINIO en .env}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - app
+
+volumes:
+  db_data:
+  caddy_data:
+  caddy_config:

@@ -43,6 +43,20 @@ npm install
 npm run lint && npm test
 ```
 
+## Despliegue (servidor)
+
+En la VM, con Docker y el repositorio clonado:
+
+```bash
+cp .env.example .env      # la primera vez: llena contraseñas y la clave de Django
+./deploy.sh main          # respalda, actualiza, reconstruye y espera el healthcheck
+```
+
+- `compose.yml` levanta Caddy (HTTPS automático para `DOMINIO`), la aplicación y MariaDB (sin puerto publicado).
+- `./respaldo.sh` deja un respaldo comprimido en `respaldos/`; cópialo fuera de la VM.
+- `./restaurar.sh <archivo>` restaura un respaldo (prueba PR-OPS-01).
+- Cada despliegue y cada respaldo se anotan en `docs/sqa/bitacora.md`.
+
 ## Verificaciones de calidad
 
 Cada pull request a `main` ejecuta la integración continua (`.github/workflows/ci.yml`):
