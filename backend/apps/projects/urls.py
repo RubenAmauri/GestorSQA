@@ -17,7 +17,7 @@ urlpatterns = [
         name="project-members",
     ),
     path(
-        "projects/<int:proyecto_id>/members/<int:membresia_id>/",
+        "projects/<int:proyecto_id>/members/<int:user_id>/",
         views.MiembroDetalleView.as_view(),
         name="project-member-detail",
     ),

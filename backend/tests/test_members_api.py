@@ -12,7 +12,7 @@ from apps.projects.models import Clase, Membership, Project
 pytestmark = pytest.mark.django_db
 
 MIEMBROS = "/api/projects/{id}/members/"
-MIEMBRO = "/api/projects/{id}/members/{miembro}/"
+MIEMBRO = "/api/projects/{id}/members/{usuario}/"
 
 
 @pytest.fixture
@@ -46,12 +46,12 @@ def miembro(proyecto, crear_usuario):
 
 
 def cambiar_clase(cliente, proyecto, objetivo, clase):
-    ruta = MIEMBRO.format(id=proyecto.id, miembro=objetivo.id)
+    ruta = MIEMBRO.format(id=proyecto.id, usuario=objetivo.user_id)
     return cliente.patch(ruta, {"clase": clase}, format="json")
 
 
 def expulsar(cliente, proyecto, objetivo):
-    return cliente.delete(MIEMBRO.format(id=proyecto.id, miembro=objetivo.id))
+    return cliente.delete(MIEMBRO.format(id=proyecto.id, usuario=objetivo.user_id))
 
 
 def clase_actual(membresia: Membership) -> str:
@@ -68,8 +68,8 @@ def test_cualquier_miembro_consulta_la_lista(cliente_de, proyecto, creador, miem
     response = cliente_de(yo.user).get(MIEMBROS.format(id=proyecto.id))
     assert response.status_code == 200
     assert response.json() == [
-        {"id": creador.id, "correo": "ana@correo.com", "clase": Clase.ADMIN_CREADOR},
-        {"id": yo.id, "correo": yo.user.email, "clase": clase},
+        {"usuario_id": creador.user_id, "correo": "ana@correo.com", "clase": Clase.ADMIN_CREADOR},
+        {"usuario_id": yo.user_id, "correo": yo.user.email, "clase": clase},
     ]
 
 
@@ -117,7 +117,7 @@ def test_pr_rf04_01_un_admin_cambia_clases_y_promueve(
     response = cambiar_clase(cliente, proyecto, objetivo, Clase.ADMIN_NORMAL)
     assert response.status_code == 200
     assert response.json() == {
-        "id": objetivo.id,
+        "usuario_id": objetivo.user_id,
         "correo": "carla@correo.com",
         "clase": Clase.ADMIN_NORMAL,
     }
@@ -203,7 +203,7 @@ def test_clase_invalida_responde_400(cliente_de, proyecto, creador, miembro, cla
 
 def test_sin_clase_responde_400(cliente_de, proyecto, creador, miembro):
     objetivo = miembro(Clase.COLABORADOR, "carla")
-    ruta = MIEMBRO.format(id=proyecto.id, miembro=objetivo.id)
+    ruta = MIEMBRO.format(id=proyecto.id, usuario=objetivo.user_id)
     response = cliente_de(creador.user).patch(ruta, {}, format="json")
     assert response.status_code == 400
     assert "clase" in response.json()
@@ -220,8 +220,8 @@ def test_asignar_admin_creador_responde_400(cliente_de, proyecto, creador, miemb
     assert clase_actual(objetivo) == Clase.ADMIN_NORMAL
 
 
-def test_membresia_de_otro_proyecto_responde_404(cliente_de, proyecto, creador, crear_usuario):
-    """No se revela ni se toca una membresía ajena, aunque quien pregunta sea Admin."""
+def test_usuario_de_otro_proyecto_responde_404(cliente_de, proyecto, creador, crear_usuario):
+    """Un usuario que solo es miembro de otro proyecto no se revela ni se toca (RNF-03)."""
     beto = crear_usuario("beto")
     otro = Project.objects.create(
         creado_por=beto,
@@ -243,9 +243,34 @@ def test_membresia_de_otro_proyecto_responde_404(cliente_de, proyecto, creador, 
     assert clase_actual(ajena) == Clase.COLABORADOR
 
 
-def test_membresia_inexistente_responde_404(cliente_de, proyecto, creador):
-    ruta = MIEMBRO.format(id=proyecto.id, miembro=999999)
-    assert cliente_de(creador.user).delete(ruta).status_code == 404
+def test_solo_cambia_la_membresia_de_este_proyecto(cliente_de, proyecto, creador, miembro):
+    """Un usuario en dos proyectos: gestionarlo en uno no toca su membresía en el otro."""
+    carla = miembro(Clase.COLABORADOR, "carla")
+    otro = Project.objects.create(
+        creado_por=carla.user,
+        nombre="De Carla",
+        periodo_nombre="2026-2",
+        fecha_inicio="2026-08-10",
+        fecha_fin="2026-12-04",
+    )
+    en_otro = Membership.objects.create(project=otro, user=carla.user, clase=Clase.ADMIN_CREADOR)
+    cliente = cliente_de(creador.user)
+
+    assert cambiar_clase(cliente, proyecto, carla, Clase.AUDITOR).status_code == 200
+    assert expulsar(cliente, proyecto, carla).status_code == 204
+    assert clase_actual(en_otro) == Clase.ADMIN_CREADOR
+
+
+def test_usuario_sin_membresia_o_inexistente_responde_404(
+    cliente_de, proyecto, creador, crear_usuario
+):
+    cliente = cliente_de(creador.user)
+    sin_proyecto = crear_usuario("eva")
+    for usuario_id in (sin_proyecto.id, 999999):
+        ruta = MIEMBRO.format(id=proyecto.id, usuario=usuario_id)
+        assert cliente.delete(ruta).status_code == 404
+        response = cliente.patch(ruta, {"clase": Clase.AUDITOR}, format="json")
+        assert response.status_code == 404
 
 
 # --- RF-05 · El Auditor solo lee --------------------------------------------------------
@@ -280,12 +305,15 @@ ESCRITURAS_DEL_PROYECTO = [
     ),
     pytest.param(
         "patch",
-        lambda c: (f"/api/projects/{{id}}/members/{c['otro'].id}/", {"clase": Clase.AUDITOR}),
+        lambda c: (
+            f"/api/projects/{{id}}/members/{c['otro'].user_id}/",
+            {"clase": Clase.AUDITOR},
+        ),
         id="cambiar-clase",
     ),
     pytest.param(
         "delete",
-        lambda c: (f"/api/projects/{{id}}/members/{c['otro'].id}/", None),
+        lambda c: (f"/api/projects/{{id}}/members/{c['otro'].user_id}/", None),
         id="expulsar",
     ),
 ]

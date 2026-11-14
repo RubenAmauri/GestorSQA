@@ -108,32 +108,32 @@ class MiembrosView(APIView):
 
 
 class MiembroDetalleView(APIView):
-    """PATCH y DELETE projects/{id}/members/{membresia_id}/: solo Admin (RF-04, HU-03).
+    """PATCH y DELETE projects/{id}/members/{user_id}/: solo Admin (RF-04, HU-03; SDS 3.4).
 
     Nadie cambia ni expulsa al Admin Creador, y nadie se cambia ni se expulsa a sí mismo.
     """
 
-    def patch(self, request: Request, proyecto_id: int, membresia_id: int) -> Response:
-        objetivo = _membresia_gestionable(request, proyecto_id, membresia_id)
+    def patch(self, request: Request, proyecto_id: int, user_id: int) -> Response:
+        objetivo = _membresia_gestionable(request, proyecto_id, user_id)
         serializer = CambioClaseSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         objetivo.clase = serializer.validated_data["clase"]
         objetivo.save(update_fields=["clase"])
         return Response(miembro_para(objetivo))
 
-    def delete(self, request: Request, proyecto_id: int, membresia_id: int) -> Response:
+    def delete(self, request: Request, proyecto_id: int, user_id: int) -> Response:
         # Al borrar la membresía, el expulsado recibe 404 en todo el proyecto (HU-03 CA-03).
-        _membresia_gestionable(request, proyecto_id, membresia_id).delete()
+        _membresia_gestionable(request, proyecto_id, user_id).delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
-def _membresia_gestionable(request: Request, proyecto_id: int, membresia_id: int) -> Membership:
+def _membresia_gestionable(request: Request, proyecto_id: int, user_id: int) -> Membership:
     membresia = obtener_membresia(request.user, proyecto_id)
     exigir_clase(membresia, CLASES_ADMIN)
-    # Se filtra por proyecto: una membresía de otro proyecto no se revela (RNF-03).
+    # Se busca la membresía del usuario en ESTE proyecto: si no es miembro, 404 (RNF-03).
     objetivo = (
         Membership.objects.select_related("user")
-        .filter(project_id=proyecto_id, id=membresia_id)
+        .filter(project_id=proyecto_id, user_id=user_id)
         .first()
     )
     if objetivo is None:

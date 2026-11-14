@@ -62,5 +62,12 @@ def proyecto_para(membresia: Membership) -> dict:
 
 
 def miembro_para(membresia: Membership) -> dict:
-    """Representación de un miembro del proyecto (RF-04, CLU-04)."""
-    return {"id": membresia.id, "correo": membresia.user.email, "clase": membresia.clase}
+    """Representación de un miembro del proyecto (RF-04, CLU-04).
+
+    Incluye el id del usuario, que es el que identifica al miembro en la API (SDS 3.4).
+    """
+    return {
+        "usuario_id": membresia.user_id,
+        "correo": membresia.user.email,
+        "clase": membresia.clase,
+    }
