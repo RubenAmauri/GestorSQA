@@ -1,4 +1,4 @@
-"""Proyectos, unión, acceso y gestión de miembros (RF-02, RF-03, RF-04, RF-06). SDS 3.4."""
+"""Proyectos, unión, acceso, edición y miembros (RF-02, RF-03, RF-04, RF-06, RF-09). SDS 3.4."""
 
 from django.db import IntegrityError, transaction
 from rest_framework import status
@@ -79,10 +79,35 @@ class UnionView(APIView):
 
 
 class ProyectoDetalleView(APIView):
-    """GET projects/{id}/: solo para miembros; 404 para el resto (RF-06, RNF-03)."""
+    """GET projects/{id}/: solo para miembros; 404 para el resto (RF-06, RNF-03).
+    PATCH projects/{id}/: solo Admin edita los datos del proyecto (RF-09, HU-08 CA-02).
+    """
 
     def get(self, request: Request, proyecto_id: int) -> Response:
         return Response(proyecto_para(obtener_membresia(request.user, proyecto_id)))
+
+    def patch(self, request: Request, proyecto_id: int) -> Response:
+        membresia = obtener_membresia(request.user, proyecto_id)
+        exigir_clase(membresia, CLASES_ADMIN)
+        proyecto = membresia.project
+        serializer = ProyectoEntradaSerializer(proyecto, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        datos = {
+            "nombre": proyecto.nombre,
+            "periodo_nombre": proyecto.periodo_nombre,
+            **serializer.validated_data,
+        }
+        # La unicidad es por creador, aunque edite un Admin Normal (RF-02).
+        if _es_duplicado(proyecto.creado_por, datos, excluir=proyecto):
+            return _duplicado()
+        for campo, valor in serializer.validated_data.items():
+            setattr(proyecto, campo, valor)
+        try:
+            with transaction.atomic():
+                proyecto.save()
+        except IntegrityError:
+            return _duplicado()
+        return Response(proyecto_para(membresia))
 
 
 class RegenerarCodigoView(APIView):
@@ -145,12 +170,20 @@ def _membresia_gestionable(request: Request, proyecto_id: int, user_id: int) -> 
     return objetivo
 
 
-def _es_duplicado(usuario, datos: dict) -> bool:
-    return Project.objects.filter(
+def _es_duplicado(usuario, datos: dict, excluir: Project | None = None) -> bool:
+    """¿El creador ya tiene otro proyecto con ese nombre y periodo normalizados?
+
+    Al editar se excluye el propio proyecto, para que renombrarlo a su mismo nombre
+    con otras mayúsculas o espacios no cuente como duplicado.
+    """
+    proyectos = Project.objects.filter(
         creado_por=usuario,
         nombre_clave=normalizar(datos["nombre"]),
         periodo_clave=normalizar(datos["periodo_nombre"]),
-    ).exists()
+    )
+    if excluir is not None:
+        proyectos = proyectos.exclude(id=excluir.id)
+    return proyectos.exists()
 
 
 def _duplicado() -> Response:

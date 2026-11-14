@@ -1,4 +1,4 @@
-"""Validación y representación de proyectos (RF-02, RF-03)."""
+"""Validación y representación de proyectos (RF-02, RF-03, RF-09)."""
 
 from rest_framework import serializers
 
@@ -11,8 +11,23 @@ MENSAJE_CLASE_ASIGNABLE = "Solo puedes asignar Admin Normal, Colaborador o Audit
 CLASES_ASIGNABLES = [Clase.ADMIN_NORMAL, Clase.COLABORADOR, Clase.AUDITOR]
 
 
+def valor_final(serializer: serializers.Serializer, datos: dict, campo: str):
+    """Valor que tendrá el campo después de guardar.
+
+    En una edición parcial (RF-09) es el enviado o, si no se envió, el guardado; así las
+    validaciones entre campos se aplican sobre el resultado final y no solo sobre lo enviado.
+    """
+    if campo in datos or serializer.instance is None:
+        return datos.get(campo)
+    return getattr(serializer.instance, campo)
+
+
 class ProyectoEntradaSerializer(serializers.Serializer):
-    """Datos para registrar un proyecto (HU-01 CA-01): todos obligatorios."""
+    """Datos para registrar un proyecto (HU-01 CA-01): todos obligatorios.
+
+    Para editarlo (RF-09) se usa con la instancia y ``partial=True``. Solo estos campos se
+    aceptan: el código de unión cambia únicamente al regenerarlo (RF-03).
+    """
 
     nombre = serializers.CharField(max_length=100)
     periodo_nombre = serializers.CharField(max_length=50)
@@ -20,7 +35,7 @@ class ProyectoEntradaSerializer(serializers.Serializer):
     fecha_fin = serializers.DateField()
 
     def validate(self, datos: dict) -> dict:
-        if datos["fecha_fin"] < datos["fecha_inicio"]:
+        if valor_final(self, datos, "fecha_fin") < valor_final(self, datos, "fecha_inicio"):
             raise serializers.ValidationError({"fecha_fin": [MENSAJE_FECHAS]})
         return datos
 
