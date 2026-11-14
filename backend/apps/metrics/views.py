@@ -1,7 +1,8 @@
-"""Métricas por sprint de un proyecto (RF-07, HU-06). Rutas de la SDS 3.4."""
+"""Métricas por sprint de un proyecto (RF-07, RF-09; HU-06, HU-08). Rutas de la SDS 3.4."""
 
 from django.db import IntegrityError, transaction
 from rest_framework import status
+from rest_framework.exceptions import NotFound
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -13,6 +14,7 @@ from .models import MetricEntry
 from .serializers import MetricaSerializer
 
 CLASES_QUE_CAPTURAN = CLASES_ADMIN | {Clase.COLABORADOR}
+MENSAJE_SPRINT_NO_ENCONTRADO = "Sprint sin métricas registradas."
 
 
 class MetricasView(APIView):
@@ -38,6 +40,20 @@ class MetricasView(APIView):
             # Dos capturas simultáneas del mismo sprint: gana la restricción única.
             return _sprint_repetido(sprint)
         return Response(MetricaSerializer(metrica).data, status=status.HTTP_201_CREATED)
+
+
+class MetricaDetalleView(APIView):
+    """PATCH projects/{id}/metrics/{sprint}/: Admin o Colaborador (RF-09, HU-08 CA-01)."""
+
+    def patch(self, request: Request, proyecto_id: int, sprint: int) -> Response:
+        membresia = obtener_membresia(request.user, proyecto_id)
+        exigir_clase(membresia, CLASES_QUE_CAPTURAN)
+        metrica = MetricEntry.objects.filter(project=membresia.project, sprint=sprint).first()
+        if metrica is None:
+            raise NotFound(MENSAJE_SPRINT_NO_ENCONTRADO)
+        serializer = MetricaSerializer(metrica, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        return Response(MetricaSerializer(serializer.save()).data)
 
 
 def _sprint_repetido(sprint: int) -> Response:

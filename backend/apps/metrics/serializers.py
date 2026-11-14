@@ -7,6 +7,7 @@ from rest_framework import serializers
 from .models import MetricEntry
 
 CERO = Decimal("0")
+MENSAJE_SPRINT_NO_EDITABLE = "El sprint no se edita; viene en la ruta."
 
 
 def _decimal(max_digits: int, decimal_places: int, **extra) -> serializers.DecimalField:
@@ -24,6 +25,9 @@ def _decimal(max_digits: int, decimal_places: int, **extra) -> serializers.Decim
 class MetricaSerializer(serializers.ModelSerializer):
     """HU-06 CA-02: todo opcional salvo el sprint; un campo omitido o null queda vacío.
     HU-06 CA-03: sin negativos; la cobertura va de 0 a 100.
+
+    Para editar (RF-09) se usa con la instancia y ``partial=True``: un campo omitido no
+    cambia y uno enviado como null queda vacío. El sprint viene en la ruta y no se edita.
     """
 
     sprint = serializers.IntegerField(min_value=1)
@@ -43,3 +47,8 @@ class MetricaSerializer(serializers.ModelSerializer):
             "kloc",
             "cobertura_pct",
         ]
+
+    def validate_sprint(self, sprint: int) -> int:
+        if self.instance is not None and sprint != self.instance.sprint:
+            raise serializers.ValidationError(MENSAJE_SPRINT_NO_EDITABLE)
+        return sprint
