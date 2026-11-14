@@ -1,7 +1,8 @@
-"""Proyectos, unión por código y acceso por membresía (RF-02, RF-03, RF-06). SDS 3.4."""
+"""Proyectos, unión, acceso y gestión de miembros (RF-02, RF-03, RF-04, RF-06). SDS 3.4."""
 
 from django.db import IntegrityError, transaction
 from rest_framework import status
+from rest_framework.exceptions import NotFound, PermissionDenied
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -10,11 +11,20 @@ from apps.core.acceso import exigir_clase, obtener_membresia
 from apps.core.throttling import UnionCodigoThrottle
 
 from .models import CLASES_ADMIN, Clase, Membership, Project, normalizar
-from .serializers import ProyectoEntradaSerializer, UnionSerializer, proyecto_para
+from .serializers import (
+    CambioClaseSerializer,
+    ProyectoEntradaSerializer,
+    UnionSerializer,
+    miembro_para,
+    proyecto_para,
+)
 
 MENSAJE_DUPLICADO = "Ya registraste un proyecto con este nombre en este periodo."
 MENSAJE_CODIGO_INVALIDO = "El código no es válido."
 MENSAJE_YA_MIEMBRO = "Ya eres miembro de este proyecto."
+MENSAJE_MIEMBRO_NO_ENCONTRADO = "Miembro no encontrado."
+MENSAJE_ES_CREADOR = "No se puede cambiar ni expulsar al Admin Creador."
+MENSAJE_ES_UNO_MISMO = "No puedes cambiar tu propia clase ni expulsarte del proyecto."
 
 
 class ProyectosView(APIView):
@@ -82,6 +92,57 @@ class RegenerarCodigoView(APIView):
         membresia = obtener_membresia(request.user, proyecto_id)
         exigir_clase(membresia, CLASES_ADMIN)
         return Response({"codigo_union": membresia.project.regenerar_codigo()})
+
+
+class MiembrosView(APIView):
+    """GET projects/{id}/members/: cualquier miembro consulta los miembros (RF-04, CLU-04)."""
+
+    def get(self, request: Request, proyecto_id: int) -> Response:
+        obtener_membresia(request.user, proyecto_id)
+        membresias = (
+            Membership.objects.filter(project_id=proyecto_id)
+            .select_related("user")
+            .order_by("fecha_union", "id")
+        )
+        return Response([miembro_para(m) for m in membresias])
+
+
+class MiembroDetalleView(APIView):
+    """PATCH y DELETE projects/{id}/members/{membresia_id}/: solo Admin (RF-04, HU-03).
+
+    Nadie cambia ni expulsa al Admin Creador, y nadie se cambia ni se expulsa a sí mismo.
+    """
+
+    def patch(self, request: Request, proyecto_id: int, membresia_id: int) -> Response:
+        objetivo = _membresia_gestionable(request, proyecto_id, membresia_id)
+        serializer = CambioClaseSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        objetivo.clase = serializer.validated_data["clase"]
+        objetivo.save(update_fields=["clase"])
+        return Response(miembro_para(objetivo))
+
+    def delete(self, request: Request, proyecto_id: int, membresia_id: int) -> Response:
+        # Al borrar la membresía, el expulsado recibe 404 en todo el proyecto (HU-03 CA-03).
+        _membresia_gestionable(request, proyecto_id, membresia_id).delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+def _membresia_gestionable(request: Request, proyecto_id: int, membresia_id: int) -> Membership:
+    membresia = obtener_membresia(request.user, proyecto_id)
+    exigir_clase(membresia, CLASES_ADMIN)
+    # Se filtra por proyecto: una membresía de otro proyecto no se revela (RNF-03).
+    objetivo = (
+        Membership.objects.select_related("user")
+        .filter(project_id=proyecto_id, id=membresia_id)
+        .first()
+    )
+    if objetivo is None:
+        raise NotFound(MENSAJE_MIEMBRO_NO_ENCONTRADO)
+    if objetivo.clase == Clase.ADMIN_CREADOR:
+        raise PermissionDenied(MENSAJE_ES_CREADOR)
+    if objetivo.id == membresia.id:
+        raise PermissionDenied(MENSAJE_ES_UNO_MISMO)
+    return objetivo
 
 
 def _es_duplicado(usuario, datos: dict) -> bool:
