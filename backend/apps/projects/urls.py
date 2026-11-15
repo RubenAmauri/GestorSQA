@@ -11,4 +11,14 @@ urlpatterns = [
         views.RegenerarCodigoView.as_view(),
         name="project-regenerar-codigo",
     ),
+    path(
+        "projects/<int:proyecto_id>/members/",
+        views.MiembrosView.as_view(),
+        name="project-members",
+    ),
+    path(
+        "projects/<int:proyecto_id>/members/<int:user_id>/",
+        views.MiembroDetalleView.as_view(),
+        name="project-member-detail",
+    ),
 ]

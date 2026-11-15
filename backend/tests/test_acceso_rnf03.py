@@ -22,6 +22,9 @@ RUTAS_DE_PROYECTO = [
     ("get", "/api/projects/{id}/activities/"),
     ("post", "/api/projects/{id}/activities/"),
     ("get", "/api/projects/{id}/report/"),
+    ("get", "/api/projects/{id}/members/"),
+    ("patch", "/api/projects/{id}/members/1/"),
+    ("delete", "/api/projects/{id}/members/1/"),
 ]
 
 RUTAS_CON_SESION = [
