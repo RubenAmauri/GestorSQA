@@ -22,11 +22,17 @@ function siguienteSprintSugerido(metricas) {
   return String(maximo + 1)
 }
 
+function textoInput(valor) {
+  if (valor === null || valor === undefined) return ''
+  return String(valor)
+}
+
 export function SeccionMetricas({ proyecto }) {
   const [metricas, setMetricas] = useState([])
   const [cargando, setCargando] = useState(true)
   const [errorCarga, setErrorCarga] = useState('')
 
+  const [sprintEditando, setSprintEditando] = useState(null)
   const [sprint, setSprint] = useState('1')
   const [defectosEncontrados, setDefectosEncontrados] = useState('')
   const [defectosCorregidos, setDefectosCorregidos] = useState('')
@@ -63,12 +69,24 @@ export function SeccionMetricas({ proyecto }) {
   }, [proyecto.id])
 
   function limpiarFormulario(listaActual = metricas) {
+    setSprintEditando(null)
     setSprint(siguienteSprintSugerido(listaActual))
     setDefectosEncontrados('')
     setDefectosCorregidos('')
     setHorasCorreccion('')
     setKloc('')
     setCoberturaPct('')
+    setErrores({})
+  }
+
+  function iniciarEdicion(metrica) {
+    setSprintEditando(metrica.sprint)
+    setSprint(String(metrica.sprint))
+    setDefectosEncontrados(textoInput(metrica.defectos_encontrados))
+    setDefectosCorregidos(textoInput(metrica.defectos_corregidos))
+    setHorasCorreccion(textoInput(metrica.horas_correccion))
+    setKloc(textoInput(metrica.kloc))
+    setCoberturaPct(textoInput(metrica.cobertura_pct))
     setErrores({})
   }
 
@@ -98,6 +116,28 @@ export function SeccionMetricas({ proyecto }) {
         kloc,
         coberturaPct,
       })
+
+      if (sprintEditando !== null) {
+        const cuerpoEdicion = { ...cuerpo }
+        delete cuerpoEdicion.sprint
+        const { ok, data } = await apiFetch(
+          `projects/${proyecto.id}/metrics/${sprintEditando}/`,
+          {
+            method: 'PATCH',
+            body: cuerpoEdicion,
+          },
+        )
+        if (ok && data) {
+          const actualizadas = metricas
+            .map((m) => (m.sprint === sprintEditando ? data : m))
+            .sort((a, b) => a.sprint - b.sprint)
+          setMetricas(actualizadas)
+          limpiarFormulario(actualizadas)
+          return
+        }
+        setErrores(extraerErroresMetricas(data))
+        return
+      }
 
       const { ok, data } = await apiFetch(`projects/${proyecto.id}/metrics/`, {
         method: 'POST',
@@ -152,6 +192,11 @@ export function SeccionMetricas({ proyecto }) {
                   <th>Horas corr.</th>
                   <th>KLOC</th>
                   <th>Cobertura</th>
+                  {capturaPermitida && (
+                    <th>
+                      <span className="oculto-visualmente">Acciones</span>
+                    </th>
+                  )}
                 </tr>
               </thead>
               <tbody>
@@ -163,6 +208,18 @@ export function SeccionMetricas({ proyecto }) {
                     <td>{formatearCelda(m.horas_correccion)}</td>
                     <td>{formatearCelda(m.kloc)}</td>
                     <td>{formatearCelda(m.cobertura_pct, ' %')}</td>
+                    {capturaPermitida && (
+                      <td className="celda-accion">
+                        <button
+                          type="button"
+                          className="boton-secundario"
+                          aria-label={`Editar sprint ${m.sprint}`}
+                          onClick={() => iniciarEdicion(m)}
+                        >
+                          Editar
+                        </button>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
@@ -173,6 +230,16 @@ export function SeccionMetricas({ proyecto }) {
                 <article key={m.sprint} className="tarjeta-item">
                   <div className="tarjeta-item-cabecera">
                     <strong>Sprint {m.sprint}</strong>
+                    {capturaPermitida && (
+                      <button
+                        type="button"
+                        className="boton-secundario"
+                        aria-label={`Editar sprint ${m.sprint}`}
+                        onClick={() => iniciarEdicion(m)}
+                      >
+                        Editar
+                      </button>
+                    )}
                   </div>
                   <p className="tarjeta-item-sub">
                     {formatearCelda(m.defectos_encontrados)} encontrados ·{' '}
@@ -194,7 +261,11 @@ export function SeccionMetricas({ proyecto }) {
 
       {capturaPermitida && (
         <section className="tarjeta-panel columna-metricas-formulario">
-          <h2>Capturar sprint</h2>
+          <h2>
+            {sprintEditando !== null
+              ? `Editar sprint ${sprintEditando}`
+              : 'Capturar sprint'}
+          </h2>
 
           {errores.general && (
             <div className="alerta-error" role="alert">
@@ -211,6 +282,7 @@ export function SeccionMetricas({ proyecto }) {
                 min="1"
                 step="1"
                 value={sprint}
+                disabled={sprintEditando !== null}
                 onChange={(e) => setSprint(e.target.value)}
                 aria-invalid={Boolean(errores.sprint)}
                 required

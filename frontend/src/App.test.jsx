@@ -673,7 +673,7 @@ describe('Métricas por sprint en el frontend (RF-07, HU-06, Lámina 07)', () =>
     ).toBeInTheDocument()
   })
 
-  it('PR-RF05-01: oculta el formulario de captura de métricas para el Auditor', async () => {
+  it('PR-RF05-01: oculta el formulario de captura y los botones Editar de métricas para el Auditor', async () => {
     vi.spyOn(globalThis, 'fetch').mockImplementation((url) => {
       if (url === '/api/auth/me/') {
         return Promise.resolve(respuestaJson(USUARIO_SESION, 200))
@@ -684,7 +684,21 @@ describe('Métricas por sprint en el frontend (RF-07, HU-06, Lámina 07)', () =>
         )
       }
       if (url === `/api/projects/${PROYECTO_ADMIN.id}/metrics/`) {
-        return Promise.resolve(respuestaJson([], 200))
+        return Promise.resolve(
+          respuestaJson(
+            [
+              {
+                sprint: 1,
+                defectos_encontrados: 4,
+                defectos_corregidos: 4,
+                horas_correccion: 10,
+                kloc: 2,
+                cobertura_pct: 80,
+              },
+            ],
+            200,
+          ),
+        )
       }
       return Promise.resolve(respuestaVacia(404))
     })
@@ -693,9 +707,85 @@ describe('Métricas por sprint en el frontend (RF-07, HU-06, Lámina 07)', () =>
     expect(
       await screen.findByRole('heading', { name: 'Métricas por sprint' }),
     ).toBeInTheDocument()
+    expect(screen.getByText('Sprint 1')).toBeInTheDocument()
     expect(
       screen.queryByRole('heading', { name: 'Capturar sprint' }),
     ).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: /Editar/i }),
+    ).not.toBeInTheDocument()
+  })
+
+  it('PR-RF09-01 (HU-08 CA-01, Lámina 07): Admin y Colaborador editan métricas de un sprint y null vacía un campo', async () => {
+    let cuerpoPatch = null
+    const metricaInicial = {
+      sprint: 1,
+      defectos_encontrados: 4,
+      defectos_corregidos: 4,
+      horas_correccion: 14,
+      kloc: 3.6,
+      cobertura_pct: 78,
+    }
+
+    vi.spyOn(globalThis, 'fetch').mockImplementation((url, opciones) => {
+      if (url === '/api/auth/me/') {
+        return Promise.resolve(respuestaJson(USUARIO_SESION, 200))
+      }
+      if (url === `/api/projects/${PROYECTO_ADMIN.id}/`) {
+        return Promise.resolve(
+          respuestaJson({ ...PROYECTO_ADMIN, mi_clase: 'COLABORADOR' }, 200),
+        )
+      }
+      if (url === `/api/projects/${PROYECTO_ADMIN.id}/metrics/`) {
+        return Promise.resolve(respuestaJson([metricaInicial], 200))
+      }
+      if (
+        url === `/api/projects/${PROYECTO_ADMIN.id}/metrics/1/` &&
+        opciones?.method === 'PATCH'
+      ) {
+        cuerpoPatch = JSON.parse(opciones.body)
+        return Promise.resolve(
+          respuestaJson({ sprint: 1, ...cuerpoPatch }, 200),
+        )
+      }
+      return Promise.resolve(respuestaVacia(404))
+    })
+
+    renderEn(`/proyectos/${PROYECTO_ADMIN.id}/metricas`)
+    const botonesEditar = await screen.findAllByLabelText('Editar sprint 1')
+    fireEvent.click(botonesEditar[0])
+
+    expect(
+      screen.getByRole('heading', { name: 'Editar sprint 1' }),
+    ).toBeInTheDocument()
+    expect(screen.getByLabelText('Sprint *')).toBeDisabled()
+    expect(screen.getByLabelText('Cobertura (%)')).toHaveValue(78)
+
+    // Vaciar KLOC (manda null), poner 0 en defectos encontrados y 85 en cobertura
+    fireEvent.change(screen.getByLabelText('KLOC (total)'), {
+      target: { value: '' },
+    })
+    fireEvent.change(screen.getByLabelText('Def. encontrados'), {
+      target: { value: '0' },
+    })
+    fireEvent.change(screen.getByLabelText('Cobertura (%)'), {
+      target: { value: '85' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar' }))
+
+    await waitFor(() => {
+      expect(cuerpoPatch).toEqual({
+        defectos_encontrados: 0,
+        defectos_corregidos: 4,
+        horas_correccion: 14,
+        kloc: null,
+        cobertura_pct: 85,
+      })
+    })
+    expect(
+      await screen.findByRole('heading', { name: 'Capturar sprint' }),
+    ).toBeInTheDocument()
+    expect(screen.getAllByText('85 %')).not.toHaveLength(0)
   })
 })
 
