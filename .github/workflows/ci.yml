@@ -47,7 +47,7 @@ jobs:
           cache: pip
           cache-dependency-path: backend/requirements*.txt
       - name: Dependencias del sistema (cliente de MariaDB)
-        run: sudo apt-get update && sudo apt-get install -y pkg-config libmysqlclient-dev
+        run: sudo apt-get update && sudo apt-get install -y --no-upgrade pkg-config libmysqlclient-dev
       - name: Dependencias de Python
         run: pip install -r requirements-dev.txt
       - name: Estilo y análisis estático (ruff)
