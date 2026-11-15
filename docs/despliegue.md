@@ -91,7 +91,7 @@ El script `deploy.sh` realiza en orden:
 4. Construye y levanta los servicios en segundo plano (`docker compose up -d --build`).
 5. Espera hasta que el `healthcheck` del contenedor `app` pase a estado `healthy`.
 
-Cada despliegue se registra en `docs/sqa/bitacora.md` con el tipo `Despliegue`.
+Cada despliegue se registra en la Bitácora SQA del Drive del equipo con el tipo `Despliegue`.
 
 ## 6. Verificación posterior al despliegue (`PR-RNF05-04`)
 
