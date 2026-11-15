@@ -36,4 +36,4 @@ if [ "$estado" != "healthy" ]; then
 fi
 
 echo "Desplegado: rama $rama, commit $(git rev-parse --short HEAD), $(date '+%Y-%m-%d %H:%M')."
-echo "Anota este despliegue en docs/sqa/bitacora.md (tipo: Despliegue)."
+echo "Anota este despliegue en la Bitácora SQA del Drive (tipo: Despliegue)."
