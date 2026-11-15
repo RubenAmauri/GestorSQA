@@ -300,6 +300,13 @@ body {
   display: none;
 }
 
+/* Si una celda larga no cabe, la tabla se desplaza dentro de su contenedor y la
+   página no gana scroll horizontal (RNF-01). */
+.tabla-desplazable {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
 .tabla-datos {
   width: 100%;
   border-collapse: collapse;
@@ -849,12 +856,52 @@ body {
   }
 }
 
+/* Vista imprimible del reporte (RF-12, HU-09 CA-02) */
 @media print {
   .barra-superior,
   .pestanas-proyecto,
   .selector-seccion-movil,
   .acciones-reporte,
-  .acciones-reporte-movil {
+  .acciones-reporte-movil,
+  .cabecera-actividades-reporte .enlace-barra,
+  .alerta-error {
     display: none !important;
+  }
+
+  body {
+    background: #ffffff;
+  }
+
+  /* El ancho de una hoja es menor que el de escritorio: se fuerza la tabla, que en
+     papel se lee mejor que las tarjetas móviles. */
+  .solo-tabla-escritorio {
+    display: table !important;
+  }
+
+  .lista-tarjetas-movil {
+    display: none !important;
+  }
+
+  .tabla-desplazable {
+    overflow: visible;
+  }
+
+  .rejilla-indicadores {
+    grid-template-columns: repeat(4, 1fr);
+  }
+
+  /* Que no se corten las filas ni las tarjetas, y que el encabezado de una tabla se
+     repita si ocupa más de una hoja. */
+  .tabla-datos thead {
+    display: table-header-group;
+  }
+
+  .tabla-datos tr,
+  .tarjeta-indicador {
+    break-inside: avoid;
+  }
+
+  .contenedor-reporte h2 {
+    break-after: avoid;
   }
 }

@@ -934,9 +934,126 @@ describe('Reporte de salud en el frontend (RF-10, RF-11, HU-07, Láminas 06 y 06
     expect(screen.getAllByText('78 %')).not.toHaveLength(0)
     expect(screen.getAllByText('3.5 h')).not.toHaveLength(0)
     expect(screen.getByText('2 / 1')).toBeInTheDocument()
-    expect(screen.getByText('Revisión de código')).toBeInTheDocument()
+    // Aparece en la tabla y en la tarjeta móvil; el CSS decide cuál se ve (#25).
+    expect(screen.getAllByText('Revisión de código')).toHaveLength(2)
   })
 })
 
+describe('Descarga e impresión del reporte (RF-12, HU-09)', () => {
+  const REPORTE = {
+    proyecto: PROYECTO_ADMIN,
+    estado_general: 'ADVERTENCIA',
+    sprint_referencia: 3,
+    indicadores: {
+      sprint: 3,
+      nivel: 'ADVERTENCIA',
+      densidad: { nivel: 'ADVERTENCIA', valor: 6.11 },
+      cobertura: { nivel: 'OPTIMO', valor: 78 },
+      tiempo_correccion: { nivel: 'OPTIMO', valor: 3.5 },
+      actividades: { nivel: 'OPTIMO', valor: 2 },
+      actividades_planeadas: 2,
+      actividades_realizadas: 2,
+    },
+    historial: [],
+    actividades: [],
+  }
+  const URL_CSV = `/api/projects/${PROYECTO_ADMIN.id}/report.csv`
 
+  function simularApi(respuestaCsv) {
+    return vi.spyOn(globalThis, 'fetch').mockImplementation((url) => {
+      if (url === '/api/auth/me/') return Promise.resolve(respuestaJson(USUARIO_SESION))
+      if (url === `/api/projects/${PROYECTO_ADMIN.id}/`) {
+        return Promise.resolve(respuestaJson(PROYECTO_ADMIN))
+      }
+      if (url === `/api/projects/${PROYECTO_ADMIN.id}/report/`) {
+        return Promise.resolve(respuestaJson(REPORTE))
+      }
+      if (url === URL_CSV) return Promise.resolve(respuestaCsv)
+      return Promise.resolve(respuestaVacia(404))
+    })
+  }
 
+  // jsdom no implementa URL.createObjectURL ni la descarga de archivos.
+  function simularDescargaDelNavegador() {
+    const crear = vi.fn(() => 'blob:reporte')
+    const revocar = vi.fn()
+    Object.defineProperty(URL, 'createObjectURL', { value: crear, configurable: true })
+    Object.defineProperty(URL, 'revokeObjectURL', { value: revocar, configurable: true })
+    const descargados = []
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function () {
+      descargados.push(this.download)
+    })
+    return { crear, revocar, descargados }
+  }
+
+  afterEach(() => {
+    delete URL.createObjectURL
+    delete URL.revokeObjectURL
+  })
+
+  it('PR-RF12: descarga el CSV generado por el servidor con el nombre que manda', async () => {
+    const fetchMock = simularApi(
+      new Response('﻿Reporte de salud\r\n', {
+        status: 200,
+        headers: {
+          'Content-Type': 'text/csv; charset=utf-8',
+          'Content-Disposition': 'attachment; filename="reporte-gestor-sqa-2026-11-19.csv"',
+        },
+      }),
+    )
+    const { crear, revocar, descargados } = simularDescargaDelNavegador()
+
+    renderEn(`/proyectos/${PROYECTO_ADMIN.id}`)
+    await screen.findByRole('heading', { name: 'Indicadores del sprint 3' })
+    fireEvent.click(screen.getAllByRole('button', { name: 'Descargar CSV' })[0])
+
+    await waitFor(() => expect(descargados).toEqual(['reporte-gestor-sqa-2026-11-19.csv']))
+    const llamadaCsv = fetchMock.mock.calls.find(([url]) => url === URL_CSV)
+    expect(llamadaCsv[1]).toMatchObject({ credentials: 'same-origin' })
+    expect(crear).toHaveBeenCalledWith(expect.any(Blob))
+    expect(revocar).toHaveBeenCalledWith('blob:reporte')
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
+  it('PR-RF12: si la sesión expiró muestra un mensaje y no descarga nada', async () => {
+    simularApi(respuestaJson({ detail: 'Inicia sesión.' }, 401))
+    const { crear, descargados } = simularDescargaDelNavegador()
+
+    renderEn(`/proyectos/${PROYECTO_ADMIN.id}`)
+    await screen.findByRole('heading', { name: 'Indicadores del sprint 3' })
+    fireEvent.click(screen.getAllByRole('button', { name: 'Descargar CSV' })[0])
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Tu sesión expiró. Inicia sesión de nuevo para descargar el reporte.',
+    )
+    expect(crear).not.toHaveBeenCalled()
+    expect(descargados).toEqual([])
+  })
+
+  it('PR-RF12: ante otro error del servidor muestra un mensaje genérico', async () => {
+    simularApi(respuestaJson({ detail: 'Error' }, 500))
+    simularDescargaDelNavegador()
+
+    renderEn(`/proyectos/${PROYECTO_ADMIN.id}`)
+    await screen.findByRole('heading', { name: 'Indicadores del sprint 3' })
+    fireEvent.click(screen.getAllByRole('button', { name: 'Descargar CSV' })[0])
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'No se pudo descargar el reporte. Intenta de nuevo.',
+    )
+  })
+
+  it('PR-RF12 (HU-09 CA-02): el botón "Imprimir" abre la vista imprimible', async () => {
+    simularApi(respuestaVacia(404))
+    const imprimir = vi.spyOn(window, 'print').mockImplementation(() => {})
+
+    renderEn(`/proyectos/${PROYECTO_ADMIN.id}`)
+    await screen.findByRole('heading', { name: 'Indicadores del sprint 3' })
+    const botones = screen.getAllByRole('button', { name: 'Imprimir' })
+    expect(botones).toHaveLength(2) // escritorio y móvil
+    fireEvent.click(botones[0])
+
+    expect(imprimir).toHaveBeenCalledTimes(1)
+    expect(screen.queryByRole('button', { name: 'Vista imprimible' })).not.toBeInTheDocument()
+  })
+})

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { apiFetch } from './api.js'
+import { apiDescargar, apiFetch } from './api.js'
 
 const ETIQUETA_NIVEL = {
   OPTIMO: 'ÓPTIMO',
@@ -29,6 +29,23 @@ const ETIQUETA_RESULTADO_ACT = {
   SATISFACTORIO: 'Satisfactorio',
   CON_HALLAZGOS: 'Con hallazgos',
   NO_SATISFACTORIO: 'No satisfactorio',
+}
+
+const MENSAJE_SESION_EXPIRADA =
+  'Tu sesión expiró. Inicia sesión de nuevo para descargar el reporte.'
+const MENSAJE_ERROR_DESCARGA = 'No se pudo descargar el reporte. Intenta de nuevo.'
+const MENSAJE_SIN_CONEXION = 'No se pudo conectar con el servidor.'
+
+// Entrega al navegador un archivo ya descargado, con el nombre que mandó el servidor.
+function guardarArchivo(blob, nombre) {
+  const url = URL.createObjectURL(blob)
+  const enlace = document.createElement('a')
+  enlace.href = url
+  enlace.download = nombre
+  document.body.appendChild(enlace)
+  enlace.click()
+  enlace.remove()
+  URL.revokeObjectURL(url)
 }
 
 function puedeRegistrarEnProyecto(clase) {
@@ -67,6 +84,8 @@ export function SeccionReporte({ proyecto }) {
   const [reporte, setReporte] = useState(null)
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState('')
+  const [descargando, setDescargando] = useState(false)
+  const [errorDescarga, setErrorDescarga] = useState('')
 
   useEffect(() => {
     let activo = true
@@ -147,16 +166,41 @@ export function SeccionReporte({ proyecto }) {
     (a) => a.estado === 'REALIZADA' && a.resultado === 'NO_SATISFACTORIO',
   ).length
 
-  function descargarCsv() {
-    const contenido = generarCsvReporte(reporte)
-    const blob = new Blob([contenido], { type: 'text/csv;charset=utf-8;' })
-    const url = URL.createObjectURL(blob)
-    const enlace = document.createElement('a')
-    enlace.href = url
-    enlace.download = `reporte-proyecto-${proyecto.id}.csv`
-    enlace.click()
-    URL.revokeObjectURL(url)
+  // El CSV lo genera el servidor (SDS 3.4, RF-12).
+  async function descargarCsv() {
+    setErrorDescarga('')
+    setDescargando(true)
+    try {
+      const { ok, status, blob, nombre } = await apiDescargar(
+        `projects/${proyecto.id}/report.csv`,
+      )
+      if (!ok) {
+        setErrorDescarga(status === 401 ? MENSAJE_SESION_EXPIRADA : MENSAJE_ERROR_DESCARGA)
+        return
+      }
+      guardarArchivo(blob, nombre || `reporte-proyecto-${proyecto.id}.csv`)
+    } catch {
+      setErrorDescarga(MENSAJE_SIN_CONEXION)
+    } finally {
+      setDescargando(false)
+    }
   }
+
+  const botonesReporte = (
+    <>
+      <button
+        type="button"
+        className="boton-secundario"
+        onClick={descargarCsv}
+        disabled={descargando}
+      >
+        {descargando ? 'Descargando...' : 'Descargar CSV'}
+      </button>
+      <button type="button" className="boton-secundario" onClick={() => window.print()}>
+        Imprimir
+      </button>
+    </>
+  )
 
   return (
     <section className="contenedor-reporte">
@@ -169,19 +213,14 @@ export function SeccionReporte({ proyecto }) {
           </span>
         </div>
 
-        <div className="acciones-reporte solo-escritorio">
-          <button type="button" className="boton-secundario" onClick={descargarCsv}>
-            Descargar CSV
-          </button>
-          <button
-            type="button"
-            className="boton-secundario"
-            onClick={() => window.print()}
-          >
-            Vista imprimible
-          </button>
-        </div>
+        <div className="acciones-reporte solo-escritorio">{botonesReporte}</div>
       </div>
+
+      {errorDescarga && (
+        <div className="alerta-error" role="alert">
+          {errorDescarga}
+        </div>
+      )}
 
       <h2>Indicadores del sprint {sprintRef}</h2>
       <div className="rejilla-indicadores">
@@ -233,34 +272,36 @@ export function SeccionReporte({ proyecto }) {
       </div>
 
       <h2>Historial por sprint</h2>
-      <table className="tabla-datos solo-tabla-escritorio">
-        <thead>
-          <tr>
-            <th>Sprint</th>
-            <th>Densidad</th>
-            <th>Cobertura</th>
-            <th>Tiempo corr.</th>
-            <th>Actividades plan. / real.</th>
-            <th>Estado</th>
-          </tr>
-        </thead>
-        <tbody>
-          {historialOrdenado.map((s) => (
-            <tr key={s.sprint}>
-              <td className="celda-fuerte">{s.sprint}</td>
-              <td>{formatearCeldaHistorial(s.densidad)}</td>
-              <td>{formatearCeldaHistorial(s.cobertura, ' %')}</td>
-              <td>{formatearCeldaHistorial(s.tiempo_correccion, ' h')}</td>
-              <td>
-                {s.actividades_planeadas} / {s.actividades_realizadas}
-              </td>
-              <td>
-                <InsigniaNivel nivel={s.nivel} />
-              </td>
+      <div className="tabla-desplazable">
+        <table className="tabla-datos solo-tabla-escritorio">
+          <thead>
+            <tr>
+              <th>Sprint</th>
+              <th>Densidad</th>
+              <th>Cobertura</th>
+              <th>Tiempo corr.</th>
+              <th>Actividades plan. / real.</th>
+              <th>Estado</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {historialOrdenado.map((s) => (
+              <tr key={s.sprint}>
+                <td className="celda-fuerte">{s.sprint}</td>
+                <td>{formatearCeldaHistorial(s.densidad)}</td>
+                <td>{formatearCeldaHistorial(s.cobertura, ' %')}</td>
+                <td>{formatearCeldaHistorial(s.tiempo_correccion, ' h')}</td>
+                <td>
+                  {s.actividades_planeadas} / {s.actividades_realizadas}
+                </td>
+                <td>
+                  <InsigniaNivel nivel={s.nivel} />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
 
       <div className="lista-tarjetas-movil">
         {historialOrdenado.map((s) => (
@@ -288,69 +329,56 @@ export function SeccionReporte({ proyecto }) {
           No hay actividades registradas en el sprint {sprintRef}.
         </p>
       ) : (
-        <table className="tabla-datos">
-          <thead>
-            <tr>
-              <th>Tipo</th>
-              <th>Estado</th>
-              <th>Responsable</th>
-              <th>Resultado</th>
-            </tr>
-          </thead>
-          <tbody>
+        <>
+          <div className="tabla-desplazable">
+            <table className="tabla-datos solo-tabla-escritorio">
+              <thead>
+                <tr>
+                  <th>Tipo</th>
+                  <th>Estado</th>
+                  <th>Responsable</th>
+                  <th>Resultado</th>
+                </tr>
+              </thead>
+              <tbody>
+                {actividadesSprintRef.map((a) => (
+                  <tr key={a.id}>
+                    <td>{a.nombre}</td>
+                    <td>{ETIQUETA_ESTADO_ACT[a.estado] || a.estado}</td>
+                    <td>{a.responsable}</td>
+                    <td>
+                      {a.resultado
+                        ? ETIQUETA_RESULTADO_ACT[a.resultado] || a.resultado
+                        : '—'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* En móvil, tarjetas apiladas en lugar de la tabla (RNF-01, #25). */}
+          <div className="lista-tarjetas-movil">
             {actividadesSprintRef.map((a) => (
-              <tr key={a.id}>
-                <td>{a.nombre}</td>
-                <td>{ETIQUETA_ESTADO_ACT[a.estado] || a.estado}</td>
-                <td>{a.responsable}</td>
-                <td>
+              <article key={a.id} className="tarjeta-item">
+                <div className="tarjeta-item-cabecera">
+                  <strong>{a.nombre}</strong>
+                </div>
+                <p className="tarjeta-item-sub">
+                  {ETIQUETA_ESTADO_ACT[a.estado] || a.estado}
+                  {' · '}
                   {a.resultado
                     ? ETIQUETA_RESULTADO_ACT[a.resultado] || a.resultado
-                    : '—'}
-                </td>
-              </tr>
+                    : 'Sin resultado'}
+                </p>
+                <p className="tarjeta-item-sub">{a.responsable}</p>
+              </article>
             ))}
-          </tbody>
-        </table>
+          </div>
+        </>
       )}
 
-      <div className="acciones-reporte-movil">
-        <button type="button" className="boton-secundario" onClick={descargarCsv}>
-          Descargar CSV
-        </button>
-        <button
-          type="button"
-          className="boton-secundario"
-          onClick={() => window.print()}
-        >
-          Vista imprimible
-        </button>
-      </div>
+      <div className="acciones-reporte-movil">{botonesReporte}</div>
     </section>
   )
-}
-
-function generarCsvReporte(reporte) {
-  const lineas = [
-    `Proyecto,${reporte.proyecto?.nombre || ''}`,
-    `Periodo,${reporte.proyecto?.periodo_nombre || ''}`,
-    `Estado general,${reporte.estado_general}`,
-    `Sprint de referencia,${reporte.sprint_referencia ?? ''}`,
-    '',
-    'Sprint,Estado,Densidad,Cobertura,Tiempo correccion,Planeadas,Realizadas',
-  ]
-  for (const s of reporte.historial || []) {
-    lineas.push(
-      [
-        s.sprint,
-        s.nivel,
-        s.densidad?.valor ?? '',
-        s.cobertura?.valor ?? '',
-        s.tiempo_correccion?.valor ?? '',
-        s.actividades_planeadas,
-        s.actividades_realizadas,
-      ].join(','),
-    )
-  }
-  return lineas.join('\n')
 }
