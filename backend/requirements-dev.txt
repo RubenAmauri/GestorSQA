@@ -5,3 +5,4 @@ pytest-cov>=5,<7
 ruff>=0.6,<1
 bandit>=1.7,<2
 radon>=6,<7
+locust>=2.32,<3
