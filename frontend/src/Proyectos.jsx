@@ -577,7 +577,7 @@ export function VistaProyecto({
           path="miembros"
           element={
             SeccionMiembros ? (
-              <SeccionMiembros proyecto={proyecto} />
+              <SeccionMiembros proyecto={proyecto} usuario={usuario} />
             ) : (
               <SeccionPendiente titulo="Miembros del proyecto" />
             )
