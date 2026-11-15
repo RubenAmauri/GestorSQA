@@ -29,6 +29,10 @@ function puedeRegistrarActividad(clase) {
   )
 }
 
+function esClaseAdmin(clase) {
+  return clase === 'ADMIN_CREADOR' || clase === 'ADMIN_NORMAL'
+}
+
 function formatearFecha(iso) {
   if (!iso || typeof iso !== 'string') return '—'
   const partes = iso.split('-')
@@ -55,13 +59,44 @@ export function SeccionActividades({ proyecto, usuario }) {
   const [filtroEstado, setFiltroEstado] = useState('')
   const [cargando, setCargando] = useState(true)
   const [errorCarga, setErrorCarga] = useState('')
+  const [errorAccion, setErrorAccion] = useState('')
 
   const [actividadDetalle, setActividadDetalle] = useState(null)
+  const [actividadEditando, setActividadEditando] = useState(null)
+  const [actividadAEliminar, setActividadAEliminar] = useState(null)
+  const [eliminando, setEliminando] = useState(false)
   const [mostrarFormulario, setMostrarFormulario] = useState(
     () => searchParams.get('nueva') === '1',
   )
 
   const registroPermitido = puedeRegistrarActividad(proyecto.mi_clase)
+  const esAdmin = esClaseAdmin(proyecto.mi_clase)
+
+  useEffect(() => {
+    let activo = true
+    apiFetch(`projects/${proyecto.id}/members/`)
+      .then(({ ok, data }) => {
+        if (!activo || !ok || !Array.isArray(data)) return
+        setResponsables((previos) => {
+          const mapa = new Map()
+          for (const m of data) {
+            if (m?.usuario_id) {
+              mapa.set(m.usuario_id, { id: m.usuario_id, email: m.correo })
+            }
+          }
+          for (const r of previos) {
+            if (r?.id && !mapa.has(r.id)) {
+              mapa.set(r.id, r)
+            }
+          }
+          return [...mapa.values()]
+        })
+      })
+      .catch(() => {})
+    return () => {
+      activo = false
+    }
+  }, [proyecto.id])
 
   useEffect(() => {
     let activo = true
@@ -95,16 +130,104 @@ export function SeccionActividades({ proyecto, usuario }) {
     }
   }, [proyecto.id, filtroSprint, filtroEstado, usuario])
 
-  function alGuardarActividad(nueva) {
-    const actualizadas = [...actividades, nueva]
+  function abrirNuevoRegistro() {
+    setActividadEditando(null)
+    setMostrarFormulario(true)
+  }
+
+  function iniciarEdicionActividad(actividad) {
+    setActividadEditando(actividad)
+    setMostrarFormulario(true)
+  }
+
+  function cerrarFormulario() {
+    setActividadEditando(null)
+    setMostrarFormulario(false)
+  }
+
+  function alGuardarActividad(guardada) {
+    const existe = actividades.some((a) => a.id === guardada.id)
+    const actualizadas = existe
+      ? actividades.map((a) => (a.id === guardada.id ? guardada : a))
+      : [...actividades, guardada]
     setActividades(actualizadas)
+    if (actividadDetalle?.id === guardada.id) {
+      setActividadDetalle(guardada)
+    }
     actualizarCatalogosLocales(
       actualizadas,
       usuario,
       setSprintsConocidos,
       setResponsables,
     )
-    setMostrarFormulario(false)
+    cerrarFormulario()
+  }
+
+  async function confirmarEliminacion() {
+    if (!actividadAEliminar) return
+    setErrorAccion('')
+    setEliminando(true)
+    try {
+      const { ok, data } = await apiFetch(
+        `projects/${proyecto.id}/activities/${actividadAEliminar.id}/`,
+        { method: 'DELETE' },
+      )
+      if (ok) {
+        setActividades((actuales) =>
+          actuales.filter((a) => a.id !== actividadAEliminar.id),
+        )
+        if (actividadDetalle?.id === actividadAEliminar.id) {
+          setActividadDetalle(null)
+        }
+        if (actividadEditando?.id === actividadAEliminar.id) {
+          cerrarFormulario()
+        }
+        setActividadAEliminar(null)
+        return
+      }
+      setErrorAccion(data?.detail || 'No se pudo eliminar la actividad.')
+    } catch {
+      setErrorAccion('No se pudo conectar con el servidor.')
+    } finally {
+      setEliminando(false)
+    }
+  }
+
+  function renderizarBotonesAccion(actividad) {
+    return (
+      <div className="acciones-encabezado">
+        <button
+          type="button"
+          className="boton-secundario"
+          onClick={() => setActividadDetalle(actividad)}
+        >
+          Ver
+        </button>
+        {registroPermitido && (
+          <button
+            type="button"
+            className="boton-secundario"
+            aria-label={`Editar actividad ${actividad.id}`}
+            onClick={() => iniciarEdicionActividad(actividad)}
+          >
+            Editar
+          </button>
+        )}
+        {esAdmin && (
+          <button
+            type="button"
+            className="boton-secundario"
+            aria-label={`Eliminar actividad ${actividad.id}`}
+            onClick={() => {
+              setErrorAccion('')
+              setActividadAEliminar(actividad)
+            }}
+          >
+            Eliminar
+          </button>
+        )}
+      </div>
+    )
   }
 
   return (
@@ -145,7 +268,7 @@ export function SeccionActividades({ proyecto, usuario }) {
           <button
             type="button"
             className="boton-primario boton-ajustado"
-            onClick={() => setMostrarFormulario(true)}
+            onClick={abrirNuevoRegistro}
           >
             Registrar actividad
           </button>
@@ -154,12 +277,53 @@ export function SeccionActividades({ proyecto, usuario }) {
 
       {registroPermitido && mostrarFormulario && (
         <FormularioActividad
+          key={actividadEditando ? `editar-${actividadEditando.id}` : 'nueva'}
           proyectoId={proyecto.id}
+          actividadInicial={actividadEditando}
           responsables={responsables}
           usuarioActual={usuario}
           alGuardar={alGuardarActividad}
-          alCancelar={() => setMostrarFormulario(false)}
+          alCancelar={cerrarFormulario}
         />
+      )}
+
+      {errorAccion && (
+        <div className="alerta-error" role="alert">
+          {errorAccion}
+        </div>
+      )}
+
+      {actividadAEliminar && (
+        <div
+          className="cuadro-confirmacion"
+          role="region"
+          aria-label="Confirmar eliminación de actividad"
+        >
+          <p>
+            <strong>
+              ¿Eliminar la actividad {formatearTipoTabla(actividadAEliminar)} del
+              sprint {actividadAEliminar.sprint}?
+            </strong>
+          </p>
+          <div className="acciones-formulario">
+            <button
+              type="button"
+              className="boton-primario boton-ajustado"
+              disabled={eliminando}
+              onClick={confirmarEliminacion}
+            >
+              Confirmar eliminación
+            </button>
+            <button
+              type="button"
+              className="boton-secundario"
+              disabled={eliminando}
+              onClick={() => setActividadAEliminar(null)}
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
       )}
 
       {cargando && <p role="status">Cargando actividades...</p>}
@@ -202,15 +366,7 @@ export function SeccionActividades({ proyecto, usuario }) {
                     {a.resultado ? ETIQUETA_RESULTADO[a.resultado] || a.resultado : '—'}
                   </td>
                   <td>{formatearFecha(a.fecha)}</td>
-                  <td className="celda-accion">
-                    <button
-                      type="button"
-                      className="boton-secundario"
-                      onClick={() => setActividadDetalle(a)}
-                    >
-                      Ver
-                    </button>
-                  </td>
+                  <td className="celda-accion">{renderizarBotonesAccion(a)}</td>
                 </tr>
               ))}
             </tbody>
@@ -231,13 +387,7 @@ export function SeccionActividades({ proyecto, usuario }) {
                     ? ` · ${ETIQUETA_RESULTADO[a.resultado] || a.resultado}`
                     : ''}
                 </p>
-                <button
-                  type="button"
-                  className="boton-secundario"
-                  onClick={() => setActividadDetalle(a)}
-                >
-                  Ver
-                </button>
+                {renderizarBotonesAccion(a)}
               </article>
             ))}
           </div>
@@ -281,23 +431,43 @@ export function SeccionActividades({ proyecto, usuario }) {
 
 function FormularioActividad({
   proyectoId,
+  actividadInicial,
   responsables,
   usuarioActual,
   alGuardar,
   alCancelar,
 }) {
-  const [sprint, setSprint] = useState('1')
-  const [fecha, setFecha] = useState('')
-  const [tipo, setTipo] = useState('PRUEBAS')
-  const [nombreOtra, setNombreOtra] = useState('')
-  const [estado, setEstado] = useState('PLANEADA')
-  const [resultado, setResultado] = useState('')
-  const [responsable, setResponsable] = useState(() =>
-    usuarioActual?.id ? String(usuarioActual.id) : String(responsables[0]?.id || ''),
+  const [sprint, setSprint] = useState(() =>
+    actividadInicial ? String(actividadInicial.sprint) : '1',
   )
-  const [descripcion, setDescripcion] = useState('')
-  const [hallazgos, setHallazgos] = useState('')
-  const [evidenciaUrl, setEvidenciaUrl] = useState('')
+  const [fecha, setFecha] = useState(() => actividadInicial?.fecha || '')
+  const [tipo, setTipo] = useState(() => actividadInicial?.tipo || 'PRUEBAS')
+  const [nombreOtra, setNombreOtra] = useState(
+    () => actividadInicial?.nombre_otra || '',
+  )
+  const [estado, setEstado] = useState(
+    () => actividadInicial?.estado || 'PLANEADA',
+  )
+  const [resultado, setResultado] = useState(
+    () => actividadInicial?.resultado || '',
+  )
+  const [responsable, setResponsable] = useState(() => {
+    if (actividadInicial?.responsable?.id) {
+      return String(actividadInicial.responsable.id)
+    }
+    return usuarioActual?.id
+      ? String(usuarioActual.id)
+      : String(responsables[0]?.id || '')
+  })
+  const [descripcion, setDescripcion] = useState(
+    () => actividadInicial?.descripcion || '',
+  )
+  const [hallazgos, setHallazgos] = useState(
+    () => actividadInicial?.hallazgos || '',
+  )
+  const [evidenciaUrl, setEvidenciaUrl] = useState(
+    () => actividadInicial?.evidencia_url || '',
+  )
   const [errores, setErrores] = useState({})
   const [enviando, setEnviando] = useState(false)
 
@@ -339,8 +509,13 @@ function FormularioActividad({
         evidencia_url: estado === 'REALIZADA' ? evidenciaUrl : '',
       }
 
-      const { ok, data } = await apiFetch(`projects/${proyectoId}/activities/`, {
-        method: 'POST',
+      const ruta = actividadInicial
+        ? `projects/${proyectoId}/activities/${actividadInicial.id}/`
+        : `projects/${proyectoId}/activities/`
+      const metodo = actividadInicial ? 'PATCH' : 'POST'
+
+      const { ok, data } = await apiFetch(ruta, {
+        method: metodo,
         body: cuerpo,
       })
 
@@ -359,7 +534,9 @@ function FormularioActividad({
 
   return (
     <section className="tarjeta-panel formulario-actividad">
-      <h2>Registrar actividad SQA</h2>
+      <h2>
+        {actividadInicial ? 'Editar actividad SQA' : 'Registrar actividad SQA'}
+      </h2>
 
       {errores.general && (
         <div className="alerta-error" role="alert">
