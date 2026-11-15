@@ -958,6 +958,7 @@ describe('Descarga e impresión del reporte (RF-12, HU-09)', () => {
     actividades: [],
   }
   const URL_CSV = `/api/projects/${PROYECTO_ADMIN.id}/report.csv`
+  const CONTENIDO_CSV = '﻿Reporte de salud\r\nProyecto,Gestor SQA\r\n'
 
   function simularApi(respuestaCsv) {
     return vi.spyOn(globalThis, 'fetch').mockImplementation((url) => {
@@ -993,7 +994,7 @@ describe('Descarga e impresión del reporte (RF-12, HU-09)', () => {
 
   it('PR-RF12: descarga el CSV generado por el servidor con el nombre que manda', async () => {
     const fetchMock = simularApi(
-      new Response('﻿Reporte de salud\r\n', {
+      new Response(CONTENIDO_CSV, {
         status: 200,
         headers: {
           'Content-Type': 'text/csv; charset=utf-8',
@@ -1010,7 +1011,11 @@ describe('Descarga e impresión del reporte (RF-12, HU-09)', () => {
     await waitFor(() => expect(descargados).toEqual(['reporte-gestor-sqa-2026-11-19.csv']))
     const llamadaCsv = fetchMock.mock.calls.find(([url]) => url === URL_CSV)
     expect(llamadaCsv[1]).toMatchObject({ credentials: 'same-origin' })
-    expect(crear).toHaveBeenCalledWith(expect.any(Blob))
+    // Se revisan tipo y tamaño, no la clase: según la versión de Node, el Blob de la
+    // respuesta es el de Node o el de jsdom, y solo comparten estas propiedades.
+    const [archivo] = crear.mock.calls[0]
+    expect(archivo.type).toBe('text/csv;charset=utf-8')
+    expect(archivo.size).toBe(new TextEncoder().encode(CONTENIDO_CSV).length)
     expect(revocar).toHaveBeenCalledWith('blob:reporte')
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
