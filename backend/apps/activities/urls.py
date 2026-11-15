@@ -8,4 +8,9 @@ urlpatterns = [
         views.ActividadesView.as_view(),
         name="project-activities",
     ),
+    path(
+        "projects/<int:proyecto_id>/activities/<int:actividad_id>/",
+        views.ActividadDetalleView.as_view(),
+        name="project-activity-detail",
+    ),
 ]

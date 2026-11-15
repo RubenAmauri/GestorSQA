@@ -277,11 +277,11 @@ def test_usuario_sin_membresia_o_inexistente_responde_404(
 
 # Toda escritura del proyecto. Cada caso recibe el contexto y devuelve la ruta y un cuerpo
 # válido, para que el 403 no lo tape un error de validación.
-# RF-09: agregar aquí editar el proyecto y eliminar actividades cuando existan.
+# Una ruta nueva de escritura se agrega aquí (PR-RF05-01).
 ESCRITURAS_DEL_PROYECTO = [
     pytest.param(
         "post",
-        lambda c: ("/api/projects/{id}/metrics/", {"sprint": 1, "cobertura_pct": 80}),
+        lambda c: ("/api/projects/{id}/metrics/", {"sprint": 2, "cobertura_pct": 80}),
         id="crear-metrica",
     ),
     pytest.param(
@@ -316,23 +316,66 @@ ESCRITURAS_DEL_PROYECTO = [
         lambda c: (f"/api/projects/{{id}}/members/{c['otro'].user_id}/", None),
         id="expulsar",
     ),
+    pytest.param(
+        "patch",
+        lambda c: ("/api/projects/{id}/", {"nombre": "Renombrado"}),
+        id="editar-proyecto",
+    ),
+    pytest.param(
+        "patch",
+        lambda c: ("/api/projects/{id}/metrics/1/", {"cobertura_pct": 10}),
+        id="editar-metrica",
+    ),
+    pytest.param(
+        "patch",
+        lambda c: (
+            f"/api/projects/{{id}}/activities/{c['actividad'].id}/",
+            {"resultado": Resultado.NO_SATISFACTORIO},
+        ),
+        id="editar-actividad",
+    ),
+    pytest.param(
+        "delete",
+        lambda c: (f"/api/projects/{{id}}/activities/{c['actividad'].id}/", None),
+        id="eliminar-actividad",
+    ),
 ]
 
 
 def estado_del_proyecto(proyecto: Project) -> tuple:
+    """Valores, no solo conteos: así se detecta también una edición."""
     proyecto.refresh_from_db()
     return (
+        (proyecto.nombre, proyecto.periodo_nombre, proyecto.fecha_inicio, proyecto.fecha_fin),
         proyecto.codigo_union,
-        MetricEntry.objects.filter(project=proyecto).count(),
-        ActivityEntry.objects.filter(project=proyecto).count(),
+        list(MetricEntry.objects.filter(project=proyecto).order_by("id").values()),
+        list(ActivityEntry.objects.filter(project=proyecto).order_by("id").values()),
         sorted(Membership.objects.filter(project=proyecto).values_list("id", "clase")),
     )
+
+
+def contexto_de_escritura(proyecto: Project, miembro) -> dict:
+    """Un Auditor, otro miembro, y una métrica y una actividad que editar o borrar."""
+    auditor = miembro(Clase.AUDITOR)
+    MetricEntry.objects.create(
+        project=proyecto, sprint=1, cobertura_pct=78, registrado_por=proyecto.creado_por
+    )
+    actividad = ActivityEntry.objects.create(
+        project=proyecto,
+        sprint=1,
+        tipo=Tipo.PRUEBAS,
+        estado=Estado.REALIZADA,
+        resultado=Resultado.SATISFACTORIO,
+        responsable=proyecto.creado_por,
+        registrado_por=proyecto.creado_por,
+    )
+    return {"auditor": auditor, "otro": miembro(Clase.COLABORADOR), "actividad": actividad}
 
 
 @pytest.mark.parametrize(("metodo", "caso"), ESCRITURAS_DEL_PROYECTO)
 def test_pr_rf05_01_el_auditor_no_escribe(cliente_de, proyecto, miembro, metodo, caso):
     """PR-RF05-01: el Auditor recibe 403 en toda escritura y no cambia nada."""
-    contexto = {"auditor": miembro(Clase.AUDITOR), "otro": miembro(Clase.COLABORADOR)}
+    contexto = contexto_de_escritura(proyecto, miembro)
     ruta, cuerpo = caso(contexto)
     antes = estado_del_proyecto(proyecto)
 

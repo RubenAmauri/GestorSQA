@@ -1,8 +1,9 @@
-"""Validación y representación de actividades SQA (RF-08, HU-04, HU-05; Anexo B)."""
+"""Validación y representación de actividades SQA (RF-08, RF-09, HU-04, HU-05; Anexo B)."""
 
 from rest_framework import serializers
 
 from apps.projects.models import Membership
+from apps.projects.serializers import valor_final
 
 from .models import ActivityEntry, Estado, Resultado, Tipo
 
@@ -13,7 +14,13 @@ MENSAJE_RESPONSABLE = "El responsable debe ser miembro del proyecto."
 
 
 class ActividadEntradaSerializer(serializers.Serializer):
-    """Datos para registrar una actividad. El proyecto llega en el contexto."""
+    """Datos para registrar una actividad. El proyecto llega en el contexto.
+
+    Para editarla (RF-09) se usa con la instancia y ``partial=True``: las reglas del
+    Anexo B se revisan sobre el resultado final, y el responsable solo se valida si se
+    envía (una actividad cuyo responsable fue expulsado se puede seguir editando).
+    El proyecto no se acepta en el cuerpo: una actividad no cambia de proyecto.
+    """
 
     sprint = serializers.IntegerField(min_value=1)
     tipo = serializers.ChoiceField(choices=Tipo.choices)
@@ -38,9 +45,11 @@ class ActividadEntradaSerializer(serializers.Serializer):
         return usuario_id
 
     def validate(self, datos: dict) -> dict:
-        datos["resultado"] = datos.get("resultado") or None
-        datos["nombre_otra"] = _validar_nombre_otra(datos["tipo"], datos.get("nombre_otra", ""))
-        _validar_resultado(datos["estado"], datos["resultado"])
+        datos["resultado"] = valor_final(self, datos, "resultado") or None
+        datos["nombre_otra"] = _validar_nombre_otra(
+            valor_final(self, datos, "tipo"), valor_final(self, datos, "nombre_otra") or ""
+        )
+        _validar_resultado(valor_final(self, datos, "estado"), datos["resultado"])
         return datos
 
 
