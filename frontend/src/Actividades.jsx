@@ -5,7 +5,7 @@ import { apiFetch } from './api.js'
 const TIPOS_ACTIVIDAD = [
   { valor: 'CAMINATA', etiqueta: 'Caminata' },
   { valor: 'REVISION_CODIGO', etiqueta: 'Revisión de código' },
-  { valor: 'AUDITORIA_CONFIGURACION', etiqueta: 'Auditoría de configuración' },
+  { valor: 'AUDITORIA_CONFIGURACION', etiqueta: 'Verificación de configuración' },
   { valor: 'PRUEBAS', etiqueta: 'Pruebas' },
   { valor: 'OTRA', etiqueta: 'Otra' },
 ]
