@@ -32,7 +32,8 @@ docker compose exec -e CARGA_PASSWORD app python manage.py sembrar_carga --confi
 En local, desde `backend/`:
 
 ```bash
-export DB_ENGINE=sqlite DJANGO_DEBUG=1 CARGA_PASSWORD=una-clave-local
+export DB_ENGINE=sqlite DJANGO_DEBUG=1
+read -rs CARGA_PASSWORD && export CARGA_PASSWORD      # cualquier clave para tu máquina
 python manage.py migrate && python manage.py createcachetable
 python manage.py sembrar_carga --confirmar
 ```
@@ -57,7 +58,7 @@ Quedan en la base: 50 usuarios de carga y 100 proyectos de carga.
 Desde esta carpeta, en una máquina con Locust (no en la VM, para no competir por CPU con el servidor):
 
 ```bash
-export CARGA_PASSWORD=...                  # la misma del paso 2
+read -rs CARGA_PASSWORD && export CARGA_PASSWORD      # la misma del paso 2
 mkdir -p resultados
 locust -f locustfile.py --headless \
   -H https://<dominio-del-servidor> \

@@ -3,6 +3,7 @@
 Usan un volumen pequeño; el volumen del RNF-02 son los valores por omisión del comando.
 """
 
+import secrets
 from io import StringIO
 
 import pytest
@@ -21,7 +22,8 @@ from apps.projects.models import Clase, Membership, Project
 
 pytestmark = pytest.mark.django_db
 
-CLAVE = "clave-de-carga-1"
+# Se generan al correr las pruebas: ninguna contraseña queda escrita en el repositorio.
+CLAVE = secrets.token_urlsafe(16)
 VOLUMEN = {"usuarios": 3, "proyectos": 4, "sprints": 2, "actividades_por_sprint": 3}
 
 
@@ -125,9 +127,10 @@ def test_completa_lo_que_falta_si_se_amplia_el_volumen():
 
 
 def test_la_contrasena_puede_venir_del_entorno(monkeypatch):
-    monkeypatch.setenv("CARGA_PASSWORD", "desde-el-entorno")
+    del_entorno = secrets.token_urlsafe(16)
+    monkeypatch.setenv("CARGA_PASSWORD", del_entorno)
     call_command("sembrar_carga", confirmar=True, stdout=StringIO(), **VOLUMEN)
-    assert get_user_model().objects.get(email=correo_de_carga(2)).check_password("desde-el-entorno")
+    assert get_user_model().objects.get(email=correo_de_carga(2)).check_password(del_entorno)
 
 
 def test_el_reporte_de_un_proyecto_sembrado_se_calcula(cliente_de):
