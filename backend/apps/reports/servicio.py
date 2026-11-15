@@ -73,6 +73,7 @@ def _actividad(actividad: ActivityEntry) -> dict:
         "resultado": actividad.resultado,
         "responsable": actividad.responsable.email,
         "fecha": actividad.fecha.isoformat() if actividad.fecha else None,
+        "hallazgos": actividad.hallazgos,
     }
 
 
