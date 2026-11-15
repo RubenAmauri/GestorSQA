@@ -29,6 +29,7 @@ RUTAS_DE_PROYECTO = [
     ("patch", "/api/projects/{id}/metrics/1/"),
     ("patch", "/api/projects/{id}/activities/1/"),
     ("delete", "/api/projects/{id}/activities/1/"),
+    ("get", "/api/projects/{id}/report.csv"),
 ]
 
 RUTAS_CON_SESION = [
