@@ -10,7 +10,7 @@ Proyecto de la materia Calidad del Software. La construcción sigue el Plan de A
 |---|---|
 | `backend/` | API REST con Django y Django REST Framework (`apps/`: accounts, projects, metrics, activities, reports, core) |
 | `frontend/` | Interfaz web con React y Vite |
-| `docs/sqa/` | Evidencia de SQA: bitácora, revisiones, auditorías, resultados de pruebas y reportes |
+| `docs/sqa/` | Dónde vive la evidencia de SQA: la humana en el Drive del equipo y la automatizada en GitHub |
 | `scripts/sqa/` | Scripts de apoyo para SQA |
 | `.github/` | Integración continua y plantillas de PR e issues |
 
@@ -55,7 +55,7 @@ cp .env.example .env      # la primera vez: llena contraseñas y la clave de Dja
 - `compose.yml` levanta Caddy (HTTPS automático para `DOMINIO`), la aplicación y MariaDB (sin puerto publicado).
 - `./respaldo.sh` deja un respaldo comprimido en `respaldos/`; cópialo fuera de la VM.
 - `./restaurar.sh <archivo>` restaura un respaldo (prueba PR-OPS-01).
-- Cada despliegue y cada respaldo se anotan en `docs/sqa/bitacora.md`.
+- Cada despliegue y cada respaldo se anotan en la Bitácora SQA del Drive del equipo.
 
 ## Verificaciones de calidad
 
