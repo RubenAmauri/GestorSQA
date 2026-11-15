@@ -15,7 +15,7 @@ from apps.projects.models import Project
 class Tipo(models.TextChoices):
     CAMINATA = "CAMINATA", "Caminata"
     REVISION_CODIGO = "REVISION_CODIGO", "Revisión de código"
-    AUDITORIA_CONFIGURACION = "AUDITORIA_CONFIGURACION", "Auditoría de configuración"
+    AUDITORIA_CONFIGURACION = "AUDITORIA_CONFIGURACION", "Verificación de configuración"
     PRUEBAS = "PRUEBAS", "Pruebas"
     OTRA = "OTRA", "Otra"
 

@@ -27,3 +27,22 @@ export async function apiFetch(path, { method = 'GET', body } = {}) {
     : null
   return { ok: response.ok, status: response.status, data }
 }
+
+// Descarga un archivo de la API, como el reporte en CSV (RF-12). Si el servidor
+// responde con error (por ejemplo, la sesión expiró), no descarga nada: devuelve
+// ok: false con el detalle en JSON para mostrar un mensaje en la página.
+export async function apiDescargar(path) {
+  const response = await fetch(`/api/${path}`, {
+    headers: { Accept: 'text/csv, application/json' },
+    credentials: 'same-origin',
+  })
+  if (!response.ok) {
+    const data = response.headers.get('content-type')?.includes('application/json')
+      ? await response.json()
+      : null
+    return { ok: false, status: response.status, data }
+  }
+  const disposicion = response.headers.get('content-disposition') || ''
+  const nombre = disposicion.match(/filename="([^"]+)"/)?.[1] ?? null
+  return { ok: true, status: response.status, blob: await response.blob(), nombre }
+}

@@ -332,3 +332,13 @@ def test_valores_iguales_a_los_del_motor_de_salud():
         "PRUEBAS",
         "OTRA",
     }
+
+
+def test_verificacion_de_configuracion_conserva_el_valor_guardado(cliente_admin, proyecto, admin):
+    """Anexo B (SRS v1.2): cambia la etiqueta; el valor guardado sigue siendo el mismo."""
+    datos = datos_validos(admin, tipo="AUDITORIA_CONFIGURACION")
+    response = registrar(cliente_admin, proyecto, datos)
+    assert response.status_code == 201
+    assert response.json()["tipo"] == "AUDITORIA_CONFIGURACION"
+    assert response.json()["nombre"] == "Verificación de configuración"
+    assert ActivityEntry.objects.get().tipo == Tipo.AUDITORIA_CONFIGURACION
