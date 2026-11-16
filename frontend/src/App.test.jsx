@@ -1598,5 +1598,30 @@ describe('Gestión de miembros en el frontend (RF-04, RF-05, HU-03, Lámina 09)'
       ).not.toBeInTheDocument()
     },
   )
+
+  it('PR-RNF01-01 y Guía de estilo v1.0: muestra "Gestor SQA" sin recuadro LOGO y aplica boton-destructivo en Expulsar', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation((url) => {
+      if (url === '/api/auth/me/') {
+        return Promise.resolve(respuestaJson(USUARIO_SESION, 200))
+      }
+      if (url === `/api/projects/${PROYECTO_ADMIN.id}/`) {
+        return Promise.resolve(respuestaJson(PROYECTO_ADMIN, 200))
+      }
+      if (url === `/api/projects/${PROYECTO_ADMIN.id}/members/`) {
+        return Promise.resolve(respuestaJson(LISTA_MIEMBROS, 200))
+      }
+      return Promise.resolve(respuestaVacia(404))
+    })
+
+    renderEn(`/proyectos/${PROYECTO_ADMIN.id}/miembros`)
+    expect(
+      await screen.findByRole('heading', { name: 'Miembros del proyecto (4)' }),
+    ).toBeInTheDocument()
+    expect(screen.getAllByText('Gestor SQA')[0]).toHaveClass('nombre-marca')
+    expect(screen.queryByText('LOGO')).not.toBeInTheDocument()
+    expect(
+      screen.getAllByLabelText('Expulsar a carla@correo.com')[0],
+    ).toHaveClass('boton-destructivo')
+  })
 })
 

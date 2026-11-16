@@ -32,9 +32,6 @@ export function BarraSuperior({ usuario, alCerrarSesion }) {
               ☰
             </button>
           )}
-          <span className="logo-marca" aria-hidden="true">
-            LOGO
-          </span>
           <span className="nombre-marca">Gestor SQA</span>
           {usuario && (
             <Link to="/proyectos" className="enlace-barra solo-escritorio">
