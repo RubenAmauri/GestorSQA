@@ -533,6 +533,127 @@ describe('Proyectos y unión por código en el frontend (RF-02, RF-03, RF-06)', 
     expect(await screen.findByText('NUEVO99999')).toBeInTheDocument()
   })
 
+  it('PR-RF09-03 (HU-08 CA-02, Lámina 10): un Admin edita los datos del proyecto y se validan fechas invertidas y duplicados (409)', async () => {
+    let estadoPatch = 200
+    let cuerpoPatch = null
+
+    vi.spyOn(globalThis, 'fetch').mockImplementation((url, opciones) => {
+      if (url === '/api/auth/me/') {
+        return Promise.resolve(respuestaJson(USUARIO_SESION, 200))
+      }
+      if (url === `/api/projects/${PROYECTO_ADMIN.id}/`) {
+        if (opciones?.method === 'PATCH') {
+          cuerpoPatch = JSON.parse(opciones.body)
+          if (estadoPatch === 409) {
+            return Promise.resolve(
+              respuestaJson(
+                {
+                  detail:
+                    'Ya registraste un proyecto con este nombre en este periodo.',
+                },
+                409,
+              ),
+            )
+          }
+          return Promise.resolve(
+            respuestaJson(
+              {
+                ...PROYECTO_ADMIN,
+                nombre: cuerpoPatch.nombre,
+                periodo_nombre: cuerpoPatch.periodo_nombre,
+                fecha_inicio: cuerpoPatch.fecha_inicio,
+                fecha_fin: cuerpoPatch.fecha_fin,
+              },
+              200,
+            ),
+          )
+        }
+        return Promise.resolve(respuestaJson(PROYECTO_ADMIN, 200))
+      }
+      return Promise.resolve(respuestaVacia(404))
+    })
+
+    renderEn(`/proyectos/${PROYECTO_ADMIN.id}/configuracion`)
+    const inputNombre = await screen.findByLabelText('Nombre del proyecto *')
+    expect(inputNombre).toHaveValue('Gestor SQA')
+
+    // Fechas invertidas no envían PATCH y muestran error
+    fireEvent.change(screen.getByLabelText('Fecha de fin *'), {
+      target: { value: '2026-08-01' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar cambios' }))
+    expect(
+      await screen.findByText(
+        'La fecha de fin no puede ser anterior a la fecha de inicio.',
+      ),
+    ).toBeInTheDocument()
+    expect(cuerpoPatch).toBeNull()
+
+    // Error 409 por duplicado muestra aviso general y error de campo
+    estadoPatch = 409
+    fireEvent.change(screen.getByLabelText('Fecha de fin *'), {
+      target: { value: '2026-12-04' },
+    })
+    fireEvent.change(inputNombre, { target: { value: 'Duplicado' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar cambios' }))
+    expect(
+      await screen.findByText(
+        'Ya registraste un proyecto con este nombre en este periodo.',
+      ),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText('Nombre repetido en el periodo 2026-2.'),
+    ).toBeInTheDocument()
+
+    // Guardado exitoso (200) actualiza el encabezado del proyecto
+    estadoPatch = 200
+    fireEvent.change(inputNombre, { target: { value: 'Gestor SQA v2' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar cambios' }))
+    expect(await screen.findByText('Cambios guardados.')).toBeInTheDocument()
+    expect(
+      screen.getByRole('heading', { name: 'Gestor SQA v2' }),
+    ).toBeInTheDocument()
+  })
+
+  it('PR-RF09-03 y PR-RF05-01: el Auditor y el Colaborador no ven Configuración y son redirigidos al reporte', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation((url) => {
+      if (url === '/api/auth/me/') {
+        return Promise.resolve(respuestaJson(USUARIO_SESION, 200))
+      }
+      if (url === `/api/projects/${PROYECTO_ADMIN.id}/`) {
+        return Promise.resolve(
+          respuestaJson({ ...PROYECTO_ADMIN, mi_clase: 'AUDITOR' }, 200),
+        )
+      }
+      if (url === `/api/projects/${PROYECTO_ADMIN.id}/report/`) {
+        return Promise.resolve(
+          respuestaJson(
+            {
+              proyecto: PROYECTO_ADMIN,
+              estado_general: 'SIN_EVALUACION',
+              sprint_referencia: null,
+              indicadores: null,
+              historial: [],
+              actividades: [],
+            },
+            200,
+          ),
+        )
+      }
+      return Promise.resolve(respuestaVacia(404))
+    })
+
+    renderEn(`/proyectos/${PROYECTO_ADMIN.id}/configuracion`)
+    expect(await screen.findByText('SIN EVALUACIÓN')).toBeInTheDocument()
+    expect(
+      screen.queryByRole('link', { name: 'Configuración' }),
+    ).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('heading', { name: 'Datos del proyecto' }),
+    ).not.toBeInTheDocument()
+  })
+
+
   it('PR-RNF03-01 (ADR-06): muestra "Proyecto no encontrado" cuando el usuario no es miembro (404)', async () => {
     vi.spyOn(globalThis, 'fetch').mockImplementation((url) => {
       if (url === '/api/auth/me/') {

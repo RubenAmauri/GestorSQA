@@ -610,10 +610,82 @@ function SeccionPendiente({ titulo }) {
 }
 
 function ConfiguracionProyecto({ proyecto, alActualizarProyecto }) {
+  const [nombre, setNombre] = useState(proyecto.nombre || '')
+  const [periodoNombre, setPeriodoNombre] = useState(proyecto.periodo_nombre || '')
+  const [fechaInicio, setFechaInicio] = useState(proyecto.fecha_inicio || '')
+  const [fechaFin, setFechaFin] = useState(proyecto.fecha_fin || '')
+  const [erroresDatos, setErroresDatos] = useState({})
+  const [guardandoDatos, setGuardandoDatos] = useState(false)
+  const [mensajeGuardado, setMensajeGuardado] = useState('')
+
   const [confirmando, setConfirmando] = useState(false)
   const [copiado, setCopiado] = useState(false)
   const [regenerando, setRegenerando] = useState(false)
   const [error, setError] = useState('')
+
+  useEffect(() => {
+    setNombre(proyecto.nombre || '')
+    setPeriodoNombre(proyecto.periodo_nombre || '')
+    setFechaInicio(proyecto.fecha_inicio || '')
+    setFechaFin(proyecto.fecha_fin || '')
+  }, [
+    proyecto.id,
+    proyecto.nombre,
+    proyecto.periodo_nombre,
+    proyecto.fecha_inicio,
+    proyecto.fecha_fin,
+  ])
+
+  async function manejarGuardarDatos(evento) {
+    evento.preventDefault()
+    setMensajeGuardado('')
+    const validacion = validarProyecto({
+      nombre,
+      periodoNombre,
+      fechaInicio,
+      fechaFin,
+    })
+    if (Object.keys(validacion).length > 0) {
+      setErroresDatos(validacion)
+      return
+    }
+
+    setErroresDatos({})
+    setGuardandoDatos(true)
+    try {
+      const { ok, status, data } = await apiFetch(`projects/${proyecto.id}/`, {
+        method: 'PATCH',
+        body: {
+          nombre,
+          periodo_nombre: periodoNombre,
+          fecha_inicio: fechaInicio,
+          fecha_fin: fechaFin,
+        },
+      })
+
+      if (ok && data) {
+        alActualizarProyecto(data)
+        setMensajeGuardado('Cambios guardados.')
+        return
+      }
+
+      if (status === 409) {
+        setErroresDatos({
+          general:
+            data?.detail ||
+            'Ya registraste un proyecto con este nombre en este periodo.',
+          nombre: `Nombre repetido en el periodo ${periodoNombre.trim()}.`,
+        })
+        return
+      }
+
+      setErroresDatos(extraerErroresProyecto(data))
+    } catch {
+      setErroresDatos({ general: 'No se pudo conectar con el servidor.' })
+    } finally {
+      setGuardandoDatos(false)
+    }
+  }
 
   async function copiarCodigo() {
     if (navigator.clipboard?.writeText && proyecto.codigo_union) {
@@ -635,7 +707,7 @@ function ConfiguracionProyecto({ proyecto, alActualizarProyecto }) {
         setConfirmando(false)
         setCopiado(false)
       } else {
-        setError('No se pudo regenerar el código.')
+        setError(data?.detail || 'No se pudo regenerar el código.')
       }
     } catch {
       setError('No se pudo conectar con el servidor.')
@@ -646,6 +718,101 @@ function ConfiguracionProyecto({ proyecto, alActualizarProyecto }) {
 
   return (
     <div className="rejilla-configuracion">
+      <section className="tarjeta-panel">
+        <h2>Datos del proyecto</h2>
+
+        {erroresDatos.general && (
+          <div className="alerta-error" role="alert">
+            {erroresDatos.general}
+          </div>
+        )}
+        {mensajeGuardado && <p role="status">{mensajeGuardado}</p>}
+
+        <form onSubmit={manejarGuardarDatos} noValidate>
+          <div className="campo-formulario">
+            <label htmlFor="config-nombre">Nombre del proyecto *</label>
+            <input
+              id="config-nombre"
+              type="text"
+              maxLength={100}
+              value={nombre}
+              onChange={(e) => setNombre(e.target.value)}
+              aria-invalid={Boolean(erroresDatos.nombre)}
+              required
+            />
+            {erroresDatos.nombre && (
+              <p className="error-campo" role="alert">
+                {erroresDatos.nombre}
+              </p>
+            )}
+          </div>
+
+          <div className="campo-formulario">
+            <label htmlFor="config-periodo">Nombre del periodo *</label>
+            <input
+              id="config-periodo"
+              type="text"
+              maxLength={50}
+              value={periodoNombre}
+              onChange={(e) => setPeriodoNombre(e.target.value)}
+              aria-invalid={Boolean(erroresDatos.periodo_nombre)}
+              required
+            />
+            {erroresDatos.periodo_nombre && (
+              <p className="error-campo" role="alert">
+                {erroresDatos.periodo_nombre}
+              </p>
+            )}
+          </div>
+
+          <div className="fila-dos-columnas">
+            <div className="campo-formulario">
+              <label htmlFor="config-fecha-inicio">Fecha de inicio *</label>
+              <input
+                id="config-fecha-inicio"
+                type="date"
+                value={fechaInicio}
+                onChange={(e) => setFechaInicio(e.target.value)}
+                aria-invalid={Boolean(erroresDatos.fecha_inicio)}
+                required
+              />
+              {erroresDatos.fecha_inicio && (
+                <p className="error-campo" role="alert">
+                  {erroresDatos.fecha_inicio}
+                </p>
+              )}
+            </div>
+
+            <div className="campo-formulario">
+              <label htmlFor="config-fecha-fin">Fecha de fin *</label>
+              <input
+                id="config-fecha-fin"
+                type="date"
+                value={fechaFin}
+                onChange={(e) => setFechaFin(e.target.value)}
+                aria-invalid={Boolean(erroresDatos.fecha_fin)}
+                required
+              />
+              {erroresDatos.fecha_fin && (
+                <p className="error-campo" role="alert">
+                  {erroresDatos.fecha_fin}
+                </p>
+              )}
+            </div>
+          </div>
+
+          <div className="acciones-formulario">
+            <button
+              type="submit"
+              className="boton-primario boton-ajustado"
+              disabled={guardandoDatos}
+            >
+              Guardar cambios
+            </button>
+          </div>
+        </form>
+      </section>
+
       <section className="tarjeta-panel">
         <h2>Código de unión</h2>
         <p className="texto-ayuda">
@@ -708,3 +875,4 @@ function ConfiguracionProyecto({ proyecto, alActualizarProyecto }) {
     </div>
   )
 }
+
