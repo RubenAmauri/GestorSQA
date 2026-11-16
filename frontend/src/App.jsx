@@ -3,6 +3,7 @@ import { Link, Navigate, Route, Routes, useNavigate } from 'react-router-dom'
 import { SeccionActividades } from './Actividades.jsx'
 import { apiFetch } from './api.js'
 import { SeccionMetricas } from './Metricas.jsx'
+import { SeccionMiembros } from './Miembros.jsx'
 import {
   MisProyectos,
   NuevoProyecto,
@@ -132,6 +133,7 @@ export default function App() {
                   SeccionReporte={SeccionReporte}
                   SeccionMetricas={SeccionMetricas}
                   SeccionActividades={SeccionActividades}
+                  SeccionMiembros={SeccionMiembros}
                 />
               </RutaProtegida>
             }

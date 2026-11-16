@@ -1062,3 +1062,172 @@ describe('Descarga e impresión del reporte (RF-12, HU-09)', () => {
     expect(screen.queryByRole('button', { name: 'Vista imprimible' })).not.toBeInTheDocument()
   })
 })
+
+describe('Gestión de miembros en el frontend (RF-04, RF-05, HU-03, Lámina 09)', () => {
+  const LISTA_MIEMBROS = [
+    { usuario_id: 1, correo: 'ana@correo.com', clase: 'ADMIN_CREADOR' },
+    { usuario_id: 2, correo: 'beto@correo.com', clase: 'ADMIN_NORMAL' },
+    { usuario_id: 3, correo: 'carla@correo.com', clase: 'COLABORADOR' },
+    { usuario_id: 4, correo: 'dario@correo.com', clase: 'AUDITOR' },
+  ]
+
+  it('PR-RF04-01 (HU-03 CA-01): un Admin cambia la clase al elegirla en la lista y expulsa tras confirmar', async () => {
+    let cuerpoPatch = null
+    let urlDelete = null
+
+    vi.spyOn(globalThis, 'fetch').mockImplementation((url, opciones) => {
+      if (url === '/api/auth/me/') {
+        return Promise.resolve(respuestaJson(USUARIO_SESION, 200))
+      }
+      if (url === `/api/projects/${PROYECTO_ADMIN.id}/`) {
+        return Promise.resolve(respuestaJson(PROYECTO_ADMIN, 200))
+      }
+      if (url === `/api/projects/${PROYECTO_ADMIN.id}/members/`) {
+        return Promise.resolve(respuestaJson(LISTA_MIEMBROS, 200))
+      }
+      if (
+        url === `/api/projects/${PROYECTO_ADMIN.id}/members/3/` &&
+        opciones?.method === 'PATCH'
+      ) {
+        cuerpoPatch = JSON.parse(opciones.body)
+        return Promise.resolve(
+          respuestaJson(
+            { usuario_id: 3, correo: 'carla@correo.com', clase: 'ADMIN_NORMAL' },
+            200,
+          ),
+        )
+      }
+      if (
+        url === `/api/projects/${PROYECTO_ADMIN.id}/members/4/` &&
+        opciones?.method === 'DELETE'
+      ) {
+        urlDelete = url
+        return Promise.resolve(respuestaVacia(204))
+      }
+      return Promise.resolve(respuestaVacia(404))
+    })
+
+    renderEn(`/proyectos/${PROYECTO_ADMIN.id}/miembros`)
+    expect(
+      await screen.findByRole('heading', { name: 'Miembros del proyecto (4)' }),
+    ).toBeInTheDocument()
+
+    // Cambiar clase de carla@correo.com a ADMIN_NORMAL sin botón adicional (SDS 3.5)
+    const selectCarla = screen.getAllByLabelText('Clase de carla@correo.com')[0]
+    fireEvent.change(selectCarla, { target: { value: 'ADMIN_NORMAL' } })
+
+    await waitFor(() => {
+      expect(cuerpoPatch).toEqual({ clase: 'ADMIN_NORMAL' })
+    })
+    expect(screen.getAllByLabelText('Clase de carla@correo.com')[0]).toHaveValue(
+      'ADMIN_NORMAL',
+    )
+
+    // Expulsar a dario@correo.com pide confirmación antes de borrar
+    fireEvent.click(screen.getAllByLabelText('Expulsar a dario@correo.com')[0])
+    expect(
+      screen.getByText('¿Expulsar a dario@correo.com?'),
+    ).toBeInTheDocument()
+    expect(urlDelete).toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Confirmar expulsión' }))
+    await waitFor(() => {
+      expect(urlDelete).toBe(`/api/projects/${PROYECTO_ADMIN.id}/members/4/`)
+    })
+    expect(screen.queryByText('dario@correo.com')).not.toBeInTheDocument()
+    expect(
+      screen.getByRole('heading', { name: 'Miembros del proyecto (3)' }),
+    ).toBeInTheDocument()
+  })
+
+  it('PR-RF04-02 y PR-RF04-03 (HU-03 CA-02): no ofrece controles sobre el Admin Creador ni sobre sí mismo y muestra detail en error 403', async () => {
+    const usuarioAdminNormal = { id: 2, email: 'beto@correo.com' }
+    vi.spyOn(globalThis, 'fetch').mockImplementation((url, opciones) => {
+      if (url === '/api/auth/me/') {
+        return Promise.resolve(respuestaJson(usuarioAdminNormal, 200))
+      }
+      if (url === `/api/projects/${PROYECTO_ADMIN.id}/`) {
+        return Promise.resolve(
+          respuestaJson({ ...PROYECTO_ADMIN, mi_clase: 'ADMIN_NORMAL' }, 200),
+        )
+      }
+      if (url === `/api/projects/${PROYECTO_ADMIN.id}/members/`) {
+        return Promise.resolve(respuestaJson(LISTA_MIEMBROS, 200))
+      }
+      if (
+        url === `/api/projects/${PROYECTO_ADMIN.id}/members/3/` &&
+        opciones?.method === 'PATCH'
+      ) {
+        return Promise.resolve(
+          respuestaJson(
+            { detail: 'No se puede cambiar ni expulsar al Admin Creador.' },
+            403,
+          ),
+        )
+      }
+      return Promise.resolve(respuestaVacia(404))
+    })
+
+    renderEn(`/proyectos/${PROYECTO_ADMIN.id}/miembros`)
+    expect(
+      await screen.findByRole('heading', { name: 'Miembros del proyecto (4)' }),
+    ).toBeInTheDocument()
+
+    // Admin Creador (ana) y uno mismo (beto) no tienen selector ni botón de expulsar
+    expect(
+      screen.queryByLabelText('Clase de ana@correo.com'),
+    ).not.toBeInTheDocument()
+    expect(
+      screen.queryByLabelText('Expulsar a ana@correo.com'),
+    ).not.toBeInTheDocument()
+    expect(
+      screen.queryByLabelText('Clase de beto@correo.com'),
+    ).not.toBeInTheDocument()
+    expect(
+      screen.queryByLabelText('Expulsar a beto@correo.com'),
+    ).not.toBeInTheDocument()
+    expect(screen.getAllByText('Protegido')).not.toHaveLength(0)
+    expect(screen.getAllByText('No puedes modificarte')).not.toHaveLength(0)
+
+    // Si el backend responde con error detail, lo muestra en alerta
+    fireEvent.change(screen.getAllByLabelText('Clase de carla@correo.com')[0], {
+      target: { value: 'AUDITOR' },
+    })
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'No se puede cambiar ni expulsar al Admin Creador.',
+    )
+  })
+
+  it.each(['COLABORADOR', 'AUDITOR'])(
+    'PR-RF04-04 y PR-RF05-01: %s consulta la lista de miembros pero no ve controles de gestión',
+    async (clase) => {
+      vi.spyOn(globalThis, 'fetch').mockImplementation((url) => {
+        if (url === '/api/auth/me/') {
+          return Promise.resolve(respuestaJson(USUARIO_SESION, 200))
+        }
+        if (url === `/api/projects/${PROYECTO_ADMIN.id}/`) {
+          return Promise.resolve(
+            respuestaJson({ ...PROYECTO_ADMIN, mi_clase: clase }, 200),
+          )
+        }
+        if (url === `/api/projects/${PROYECTO_ADMIN.id}/members/`) {
+          return Promise.resolve(respuestaJson(LISTA_MIEMBROS, 200))
+        }
+        return Promise.resolve(respuestaVacia(404))
+      })
+
+      renderEn(`/proyectos/${PROYECTO_ADMIN.id}/miembros`)
+      expect(
+        await screen.findByRole('heading', { name: 'Miembros del proyecto (4)' }),
+      ).toBeInTheDocument()
+      expect(screen.getAllByText('carla@correo.com')).not.toHaveLength(0)
+      expect(
+        screen.queryByLabelText('Clase de carla@correo.com'),
+      ).not.toBeInTheDocument()
+      expect(
+        screen.queryByRole('button', { name: /Expulsar/i }),
+      ).not.toBeInTheDocument()
+    },
+  )
+})
+
