@@ -216,7 +216,7 @@ export function SeccionActividades({ proyecto, usuario }) {
         {esAdmin && (
           <button
             type="button"
-            className="boton-secundario"
+            className="boton-destructivo"
             aria-label={`Eliminar actividad ${actividad.id}`}
             onClick={() => {
               setErrorAccion('')
@@ -308,7 +308,7 @@ export function SeccionActividades({ proyecto, usuario }) {
           <div className="acciones-formulario">
             <button
               type="button"
-              className="boton-primario boton-ajustado"
+              className="boton-destructivo boton-ajustado"
               disabled={eliminando}
               onClick={confirmarEliminacion}
             >

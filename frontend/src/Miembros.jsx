@@ -153,7 +153,7 @@ export function SeccionMiembros({ proyecto, usuario }) {
     return (
       <button
         type="button"
-        className="boton-secundario"
+        className="boton-destructivo"
         aria-label={`Expulsar a ${miembro.correo}`}
         onClick={() => {
           setErrorAccion('')
@@ -202,7 +202,7 @@ export function SeccionMiembros({ proyecto, usuario }) {
           <div className="acciones-formulario">
             <button
               type="button"
-              className="boton-primario boton-ajustado"
+              className="boton-destructivo boton-ajustado"
               disabled={expulsando}
               onClick={confirmarExpulsion}
             >
