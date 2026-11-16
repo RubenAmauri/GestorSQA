@@ -141,8 +141,9 @@ REST_FRAMEWORK = {
     "NUM_PROXIES": 1,
 }
 
-# Caché en la base de datos para que los límites de intentos se compartan entre los
-# workers de gunicorn. La tabla se crea con `python manage.py createcachetable`.
+# Caché en la base de datos, compartida entre los workers de gunicorn. La tabla se crea
+# con `python manage.py createcachetable`. Los límites de intentos ya no la usan: guardan
+# su historial en HistorialDeIntentos, con bloqueo de fila (apps/core/throttling.py, #41).
 CACHES = {
     "default": {
         "BACKEND": "django.core.cache.backends.db.DatabaseCache",
