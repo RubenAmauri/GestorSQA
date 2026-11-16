@@ -1007,9 +1007,15 @@ describe('Actividades SQA en el frontend (RF-08, HU-04, HU-05, Láminas 08 a 08c
 
     renderEn(`/proyectos/${PROYECTO_ADMIN.id}/actividades`)
     expect(await screen.findAllByText('Pruebas')).not.toHaveLength(0)
-    // Lámina 08b: el Auditor no ve el botón "Registrar actividad"
+    // PR-RF05-01 (Lámina 08b): el Auditor no ve "Registrar actividad", "Editar" ni "Eliminar"
     expect(
       screen.queryByRole('button', { name: 'Registrar actividad' }),
+    ).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: /Editar/i }),
+    ).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: /Eliminar/i }),
     ).not.toBeInTheDocument()
 
     // Abrir detalle con "Ver" (Lámina 08)
@@ -1032,6 +1038,158 @@ describe('Actividades SQA en el frontend (RF-08, HU-04, HU-05, Láminas 08 a 08c
         urlsConsultadas.some((u) => u.includes('estado=REALIZADA')),
       ).toBe(true)
     })
+  })
+
+  it('PR-RF09-01 (HU-08 CA-01): carga responsables desde GET /members/, edita actividad y manda resultado: null al pasar a PLANEADA', async () => {
+    let cuerpoPatch = null
+    const miembrosProyecto = [
+      { usuario_id: 1, correo: 'ana@correo.com', clase: 'ADMIN_CREADOR' },
+      { usuario_id: 3, correo: 'carla@correo.com', clase: 'COLABORADOR' },
+    ]
+
+    vi.spyOn(globalThis, 'fetch').mockImplementation((url, opciones) => {
+      if (url === '/api/auth/me/') {
+        return Promise.resolve(respuestaJson(USUARIO_SESION, 200))
+      }
+      if (url === `/api/projects/${PROYECTO_ADMIN.id}/`) {
+        return Promise.resolve(
+          respuestaJson({ ...PROYECTO_ADMIN, mi_clase: 'COLABORADOR' }, 200),
+        )
+      }
+      if (url === `/api/projects/${PROYECTO_ADMIN.id}/members/`) {
+        return Promise.resolve(respuestaJson(miembrosProyecto, 200))
+      }
+      if (
+        url ===
+          `/api/projects/${PROYECTO_ADMIN.id}/activities/${ACTIVIDAD_REALIZADA.id}/` &&
+        opciones?.method === 'PATCH'
+      ) {
+        cuerpoPatch = JSON.parse(opciones.body)
+        return Promise.resolve(
+          respuestaJson(
+            {
+              ...ACTIVIDAD_REALIZADA,
+              estado: cuerpoPatch.estado,
+              resultado: cuerpoPatch.resultado,
+              responsable: { id: 3, email: 'carla@correo.com' },
+            },
+            200,
+          ),
+        )
+      }
+      if (url.startsWith(`/api/projects/${PROYECTO_ADMIN.id}/activities/`)) {
+        return Promise.resolve(respuestaJson([ACTIVIDAD_REALIZADA], 200))
+      }
+      return Promise.resolve(respuestaVacia(404))
+    })
+
+    renderEn(`/proyectos/${PROYECTO_ADMIN.id}/actividades`)
+    const botonesEditar = await screen.findAllByLabelText(
+      `Editar actividad ${ACTIVIDAD_REALIZADA.id}`,
+    )
+    fireEvent.click(botonesEditar[0])
+
+    expect(
+      screen.getByRole('heading', { name: 'Editar actividad SQA' }),
+    ).toBeInTheDocument()
+
+    // Verifica que el selector de Responsable se pobló con GET /members/
+    await waitFor(() => {
+      expect(
+        screen.getByRole('option', { name: 'carla@correo.com' }),
+      ).toBeInTheDocument()
+    })
+    fireEvent.change(screen.getByLabelText('Responsable *'), {
+      target: { value: '3' },
+    })
+
+    // Cambiar estado a Planeada debe enviar resultado: null
+    fireEvent.click(screen.getByLabelText('Planeada'))
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar' }))
+
+    await waitFor(() => {
+      expect(cuerpoPatch).toMatchObject({
+        estado: 'PLANEADA',
+        resultado: null,
+        responsable: 3,
+      })
+    })
+    expect(await screen.findAllByText('carla@correo.com')).not.toHaveLength(0)
+  })
+
+  it('PR-RF09-02 (HU-08 CA-02): el Colaborador no ve Eliminar y el Admin elimina una actividad tras confirmar', async () => {
+    let claseActual = 'COLABORADOR'
+    let urlDelete = null
+
+    vi.spyOn(globalThis, 'fetch').mockImplementation((url, opciones) => {
+      if (url === '/api/auth/me/') {
+        return Promise.resolve(respuestaJson(USUARIO_SESION, 200))
+      }
+      if (url === `/api/projects/${PROYECTO_ADMIN.id}/`) {
+        return Promise.resolve(
+          respuestaJson({ ...PROYECTO_ADMIN, mi_clase: claseActual }, 200),
+        )
+      }
+      if (url === `/api/projects/${PROYECTO_ADMIN.id}/members/`) {
+        return Promise.resolve(
+          respuestaJson(
+            [{ usuario_id: 1, correo: 'ana@correo.com', clase: claseActual }],
+            200,
+          ),
+        )
+      }
+      if (
+        url ===
+          `/api/projects/${PROYECTO_ADMIN.id}/activities/${ACTIVIDAD_REALIZADA.id}/` &&
+        opciones?.method === 'DELETE'
+      ) {
+        urlDelete = url
+        return Promise.resolve(respuestaVacia(204))
+      }
+      if (url.startsWith(`/api/projects/${PROYECTO_ADMIN.id}/activities/`)) {
+        return Promise.resolve(respuestaJson([ACTIVIDAD_REALIZADA], 200))
+      }
+      return Promise.resolve(respuestaVacia(404))
+    })
+
+    // 1. Como COLABORADOR: ve Editar pero NO ve Eliminar
+    const { unmount } = renderEn(`/proyectos/${PROYECTO_ADMIN.id}/actividades`)
+    expect(
+      await screen.findAllByLabelText(
+        `Editar actividad ${ACTIVIDAD_REALIZADA.id}`,
+      ),
+    ).not.toHaveLength(0)
+    expect(
+      screen.queryByLabelText(`Eliminar actividad ${ACTIVIDAD_REALIZADA.id}`),
+    ).not.toBeInTheDocument()
+    unmount()
+
+    // 2. Como ADMIN_CREADOR: ve Eliminar, pide confirmación y borra (204)
+    claseActual = 'ADMIN_CREADOR'
+    renderEn(`/proyectos/${PROYECTO_ADMIN.id}/actividades`)
+    const botonesEliminar = await screen.findAllByLabelText(
+      `Eliminar actividad ${ACTIVIDAD_REALIZADA.id}`,
+    )
+    fireEvent.click(botonesEliminar[0])
+
+    expect(
+      screen.getByText(/¿Eliminar la actividad Pruebas del sprint 3\?/),
+    ).toBeInTheDocument()
+    expect(urlDelete).toBeNull()
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Confirmar eliminación' }),
+    )
+    await waitFor(() => {
+      expect(urlDelete).toBe(
+        `/api/projects/${PROYECTO_ADMIN.id}/activities/${ACTIVIDAD_REALIZADA.id}/`,
+      )
+    })
+    expect(
+      await screen.findByText(
+        'No hay actividades registradas con los criterios seleccionados.',
+      ),
+    ).toBeInTheDocument()
   })
 })
 
